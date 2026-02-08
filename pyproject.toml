@@ -1,0 +1,20 @@
+[project]
+name = "ace-agent"
+version = "0.1.0"
+description = "Agentic Cold Emailer (ACE)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "langgraph",
+    "langchain-google-vertexai",
+    "rich",
+    "google-api-python-client",
+    "google-auth-oauthlib",
+    "google-auth-httplib2",
+    "redis",
+    "python-dotenv",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
