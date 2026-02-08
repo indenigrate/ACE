@@ -23,10 +23,13 @@ model_flash = ChatGoogleGenerativeAI(
 
 def fetch_lead_node(state: AgentState) -> Dict[str, Any]:
     """Fetches the next lead from Google Sheets."""
+    print("[DEBUG] Fetching next lead...")
     lead = fetch_lead()
     if not lead:
+        print("[DEBUG] No more leads found.")
         return {"status": "end"}
     
+    print(f"[DEBUG] Lead found at Row {lead['row_index']}: {lead['recipient_name']}")
     return {
         **lead,
         "resume_content": load_resume(),
@@ -35,6 +38,7 @@ def fetch_lead_node(state: AgentState) -> Dict[str, Any]:
 
 def generate_draft_node(state: AgentState) -> Dict[str, Any]:
     """Generates the initial email draft using Gemini 2.5 Pro."""
+    print(f"[DEBUG] Generating draft for {state['recipient_name']}...")
     prompt = f"""
     You are an expert career coach. Write a concise, high-impact cold email for an internship.
     
@@ -86,6 +90,7 @@ def generate_draft_node(state: AgentState) -> Dict[str, Any]:
 
 def refine_draft_node(state: AgentState) -> Dict[str, Any]:
     """Refines the email draft based on user feedback using Gemini 2.5 Flash."""
+    print("[DEBUG] Refining draft...")
     prompt = f"""
     Rewrite the email below based strictly on this feedback: "{state['user_feedback']}"
     
@@ -116,8 +121,9 @@ def refine_draft_node(state: AgentState) -> Dict[str, Any]:
 
 def send_email_node(state: AgentState) -> Dict[str, Any]:
     """Sends the email using Gmail API."""
+    print(f"[DEBUG] Sending email to {state.get('selected_email')}...")
     if not state.get('selected_email'):
-        # This shouldn't happen if UI logic is correct
+        print("[DEBUG] Error: No selected email found.")
         return {"status": "error"}
         
     send_email(
@@ -125,20 +131,41 @@ def send_email_node(state: AgentState) -> Dict[str, Any]:
         subject=state['email_subject'],
         body=state['email_body']
     )
+    print("[DEBUG] Email sent successfully.")
     
     return {"status": "sent"}
 
 def update_sheet_node(state: AgentState) -> Dict[str, Any]:
     """Updates the Google Sheet with completion status."""
     status_text = ""
-    if state['status'] == 'sent':
+    current_status = state['status']
+    candidate_emails = state.get('candidate_emails', [])
+    
+    # Auto-detect skip condition (no emails found)
+    if not candidate_emails and current_status == 'drafting':
+        current_status = 'skipped'
+        print("[DEBUG] No candidate emails found. Marking as Skipped.")
+
+    print(f"[DEBUG] Processing status update for Row {state['row_index']}. Current Status: {current_status}")
+    
+    if current_status == 'sent':
         status_text = f"Sent: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-    elif state['status'] == 'skipped':
+    elif current_status == 'skipped':
         status_text = "Skipped - No Email"
     
     if status_text:
-        print(f"Updating Row {state['row_index']} with status: {status_text}")
-        update_lead_status(state['row_index'], status_text)
+        print(f"[DEBUG] Attempting to update Row {state['row_index']} with text: '{status_text}'")
+        try:
+            update_lead_status(
+                state['row_index'], 
+                status_text, 
+                status_index=state.get('status_index', 5)
+            )
+            print("[DEBUG] Sheet update completed.")
+        except Exception as e:
+            print(f"[DEBUG] Sheet update FAILED: {str(e)}")
+    else:
+        print("[DEBUG] No status text to update (status was not sent/skipped).")
         
     return {"status": "updated"}
 

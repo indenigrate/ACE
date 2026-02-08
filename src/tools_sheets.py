@@ -11,16 +11,17 @@ def get_sheets_service():
     creds = get_credentials()
     return build('sheets', 'v4', credentials=creds)
 
-def extract_emails_from_row(row_data):
+def extract_emails_from_row(row_data, status_index):
     """
-    Extracts all unique emails from a row of data starting from Column D.
+    Extracts all unique emails from a row of data, excluding the Status column.
     """
-    # Columns A, B, C are Name, Company, Position
-    # Columns D onwards are searched
-    search_zone = [str(cell) for cell in row_data[3:]] if len(row_data) > 3 else []
-    
+    # Search from Column D onwards
     found_emails = []
-    for cell in search_zone:
+    for i, cell in enumerate(row_data):
+        if i < 3 or i == status_index: # Skip Name, Co, Pos and Status column
+            continue
+        if not cell or not isinstance(cell, str):
+            continue
         matches = re.findall(EMAIL_REGEX, cell)
         found_emails.extend(matches)
     
@@ -28,8 +29,7 @@ def extract_emails_from_row(row_data):
 
 def fetch_lead():
     """
-    Finds the first row where the 'Status' (Column F) is empty.
-    Returns lead dict or None.
+    Dynamically finds the 'Status' column and fetches the first empty row.
     """
     if not GOOGLE_SHEET_ID:
         raise ValueError("GOOGLE_SHEET_ID is not set in environment variables.")
@@ -37,24 +37,38 @@ def fetch_lead():
     service = get_sheets_service()
     sheet = service.spreadsheets()
     
-    range_name = f"{GOOGLE_SHEET_NAME}!A:F"
+    # Read a wide range to find headers and data
+    range_name = f"'{GOOGLE_SHEET_NAME}'!A:Z"
     result = sheet.values().get(spreadsheetId=GOOGLE_SHEET_ID, range=range_name).execute()
     values = result.get('values', [])
     
     if not values:
         return None
     
-    # Skip header row
+    # 1. Identify Header Indices
+    headers = [str(h).strip().lower() for h in values[0]]
+    print(f"[DEBUG] Headers found: {headers}")
+    try:
+        status_index = headers.index("status")
+        print(f"[DEBUG] 'Status' column found at Index {status_index} (Column {chr(65+status_index)})")
+    except ValueError:
+        # Fallback to column F (index 5) if no Status header found
+        status_index = 5
+        print(f"[DEBUG] 'Status' header not found. Defaulting to Index 5 (Column F)")
+
+    # 2. Iterate Data
     for i, row in enumerate(values[1:], start=2):
-        # Column F is index 5
-        status = row[5] if len(row) > 5 else ""
+        print(f"[DEBUG] Scanning Row {i}: {row}")
+        # Check status at the dynamic index
+        status = row[status_index] if len(row) > status_index else ""
         
         if not status or status.strip() == "":
             # Found a row without status
-            candidate_emails = extract_emails_from_row(row)
+            candidate_emails = extract_emails_from_row(row, status_index)
             
             return {
                 "row_index": i,
+                "status_index": status_index, # Store for update step
                 "recipient_name": row[0] if len(row) > 0 else "Unknown",
                 "company_name": row[1] if len(row) > 1 else "Unknown",
                 "position": row[2] if len(row) > 2 else "Unknown",
@@ -64,16 +78,17 @@ def fetch_lead():
             
     return None
 
-def update_lead_status(row_index: int, status_text: str):
+def update_lead_status(row_index: int, status_text: str, status_index: int = 5):
     """
-    Updates the Status column (F) for a specific row.
+    Updates the Status column at the specific index found during fetch.
     """
     service = get_sheets_service()
     
-    range_name = f"{GOOGLE_SHEET_NAME}!F{row_index}"
-    body = {
-        'values': [[status_text]]
-    }
+    # Convert index to Column Letter (0=A, 1=B, etc.)
+    col_letter = chr(65 + status_index)
+    range_name = f"'{GOOGLE_SHEET_NAME}'!{col_letter}{row_index}"
+    
+    body = {'values': [[status_text]]}
     
     service.spreadsheets().values().update(
         spreadsheetId=GOOGLE_SHEET_ID,
@@ -82,5 +97,4 @@ def update_lead_status(row_index: int, status_text: str):
         body=body
     ).execute()
     
-    # Rate limiting protection
     time.sleep(1.5)

@@ -89,7 +89,8 @@ def main():
                 graph.update_state(config, {"user_feedback": action, "status": "refining"})
             
             # Resume execution
-            graph.invoke({}, config)
+            print(f"[DEBUG] Resuming graph execution from: {state.next}")
+            graph.invoke(None, config)
 
 if __name__ == "__main__":
     try:
