@@ -1,4 +1,3 @@
-
 # Project: Agentic Cold Emailer (ACE)
 
 **Objective:** Automate high-quality, personalized internship cold emails using a Human-in-the-Loop (HITL) agentic workflow.
@@ -16,7 +15,10 @@ graph TD
     __start__ --> fetch_lead_node
     fetch_lead_node --> check_availability{Row Found?}
     check_availability -- No --> __end__
-    check_availability -- Yes --> generate_draft_node
+    check_availability -- Yes --> check_email_count{Emails Found?}
+    check_email_count -- "0 (Skip)" --> update_skip_node
+    update_skip_node --> fetch_lead_node
+    check_email_count -- ">= 1" --> generate_draft_node
     generate_draft_node --> human_review_node
     human_review_node --> feedback_router{Feedback?}
     feedback_router -- "Approve (y)" --> send_email_node
@@ -60,7 +62,8 @@ class AgentState(TypedDict):
     recipient_name: str
     company_name: str
     position: str
-    recipient_email: str
+    candidate_emails: List[str] # All potential emails found via Regex
+    selected_email: str         # The final choice made by user or default
     
     # Context Data
     resume_content: str         # Loaded from resume.md
@@ -94,13 +97,14 @@ The agent expects a sheet named `Internship_Leads` with these exact headers:
 
 * **Input:** Current State (or None).
 * **Action:** Connects to Google Sheets. Finds the first row where `Status != "Sent"`.
-* **Output:** Updates `row_index`, `recipient_name`, `company_name`, etc.
+* **Smart Ingestion:** Performs a "Horizontal Scan" on columns D-Z using strict Regex to find all email candidates.
+* **Output:** Updates `row_index`, `recipient_name`, `company_name`, `candidate_emails`.
 * **Edge Case:** If no rows are found, returns a special signal to end the graph.
 
 ### Node 2: `generate_draft_node`
 
 * **Input:** `resume_content`, `company_name`, `position`.
-* **Model:** **Gemini 1.5 Pro**.
+* **Model:** **Gemini 1.5 Pro** (Vertex AI).
 * **Prompt Strategy:** "You are an expert career coach. Analyze the resume and the target company. Write a concise, high-impact cold email connecting the user's specific projects to the company's domain."
 * **Output:** Updates `email_subject` and `email_body`.
 
@@ -108,28 +112,32 @@ The agent expects a sheet named `Internship_Leads` with these exact headers:
 
 * **Action:** This is a **virtual node**. In LangGraph, we will use `interrupt_before=["send_email_node"]` or a dedicated review node that halts execution.
 * **CLI UX:**
-* Uses `rich.markdown` to render the email beautifully in the terminal.
-* Prompts user: `[y] Approve / [type feedback] Refine / [s] Skip`.
+    * **Scenario A (1 Email):** Standard draft review.
+    * **Scenario B (>1 Emails):** Displays "Yellow Warning". Lists all `candidate_emails` with indices. Prompts user to select target email.
+    * Uses `rich.markdown` to render the email beautifully in the terminal.
+* **Prompts:** `[y] Approve / [type feedback] Refine / [s] Skip / [1-N] Select Email`.
 
 
 
 ### Node 4: `refine_draft_node`
 
 * **Input:** `email_body`, `user_feedback`.
-* **Model:** **Gemini 1.5 Flash**.
+* **Model:** **Gemini 1.5 Flash** (Vertex AI).
 * **Prompt Strategy:** "Rewrite the email below based strictly on this feedback: '{user_feedback}'. Keep the tone professional."
 * **Output:** Updates `email_body`. Increments `iteration_count`.
 
 ### Node 5: `send_email_node`
 
-* **Input:** `recipient_email`, `email_subject`, `email_body`.
-* **Action:** Uses Gmail API `users.messages.send`.
+* **Input:** `selected_email`, `email_subject`, `email_body`.
+* **Action:** Uses **Gmail API** initialized with **User OAuth Credentials** (scoped to `gmail.send`).
+* **Auth Logic:** Ensures the "From" address matches the authenticated user in `token.json`, not the GCP project owner.
 * **Output:** Returns success metadata.
 
 ### Node 6: `update_sheet_node`
 
 * **Input:** `row_index`.
 * **Action:** Writes "Sent: {Timestamp}" to Column F (Status).
+* **Logic:** If skipped due to 0 emails, writes "Skipped - No Email".
 
 ---
 
@@ -159,10 +167,11 @@ The agent expects a sheet named `Internship_Leads` with these exact headers:
 
 ### 4.2. Required `.env` Variables
 
+These variables control the **AI Brain** (Vertex AI) and the **Database Connection** (Sheets/Redis).
+
 ```bash
 GOOGLE_API_KEY=YOUR_API_KEY
 GOOGLE_GENAI_USE_VERTEXAI=True    
-GOOGLE_APPLICATION_CREDENTIALS="path/to/vertex-key.json"
 GOOGLE_PROJECT_ID="your-project-id"
 GOOGLE_SHEET_NAME="Internship_Leads"
 REDIS_URL="redis://localhost:6379"
@@ -173,7 +182,12 @@ REDIS_URL="redis://localhost:6379"
 
 ## 5. Security & Safety Protocols
 
-1. **Token Management:** The Gmail API requires a `token.json` (refresh token). The script will handle the initial OAuth handshake on the first run.
+1. **Dual-Identity Authentication:**
+* **AI Compute Identity:** Uses `GOOGLE_API_KEY` and `GOOGLE_PROJECT_ID` (defined in `.env`) to bill the Vertex AI usage.
+* **Sender Identity (OAuth 2.0):** Uses `credentials.json` (Desktop App flow) to authenticate a *specific* Gmail user (e.g., your professional email) for sending mails and editing sheets.
+* **Token Persistence:** The sender's access/refresh tokens are stored locally in `token.json`. Deleting this file allows switching the sender account without affecting the AI billing project.
+
+
 2. **Rate Limiting:** We will add a simple `time.sleep(2)` between sheet updates to avoid hitting Google Sheets API quotas.
 3. **Spam Prevention:**
 * The agent uses your *actual* Gmail account (via API), so it behaves like a normal user sending emails.
