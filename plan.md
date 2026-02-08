@@ -3,12 +3,32 @@
 This plan outlines the steps to build the ACE system using LangGraph, Vertex AI, and Google APIs, adhering to the structure defined in `TRD.md`.
 
 ## Phase 0: Human Pre-requisites (Required before running)
-- [ ] **GCP Project**: Create a Google Cloud Project.
-- [ ] **Enable APIs**: Enable "Gmail API" and "Google Sheets API" in the project.
-- [ ] **OAuth Consent**: Configure the OAuth consent screen (User Type: External, Test Users: Add your email).
-- [ ] **Credentials**: Create OAuth 2.0 Client ID (Application type: **Desktop app**).
-- [ ] **Download**: Download the JSON file, rename it to `credentials.json`, and place it in `/config` (after directory scaffold).
-- [ ] **Google Sheet**: Create a sheet named `Internship_Leads` with columns: `Name`, `Company`, `Position`, `Email`, `LinkedIn`, `Status`.
+
+**Concept: Dual-Identity Setup**
+- **Identity A (The Brain/Wallet):** The Google Cloud Project Owner. This account has billing enabled and pays for Vertex AI.
+- **Identity B (The Sender):** The Gmail account that will actually send emails and owns the Google Sheet. This can be *any* Google account (personal or workspace).
+
+**Step-by-Step Setup:**
+1.  **GCP Setup (Identity A)**:
+    -   Go to Google Cloud Console with **Identity A**.
+    -   Create a Project (e.g., `ace-emailer`).
+    -   **Enable APIs**: Search for and enable "Gmail API", "Google Sheets API", and "Vertex AI API".
+2.  **OAuth Configuration (Identity A)**:
+    -   Go to **APIs & Services > OAuth consent screen**.
+    -   Select **User Type: External** -> Create.
+    -   Fill in app name/email.
+    -   **IMPORTANT - Test Users**: Click "Add Users" and add the email address of **Identity B** (The Sender). *This grants Identity B permission to use Identity A's API project.*
+3.  **Credentials Creation (Identity A)**:
+    -   Go to **Credentials > Create Credentials > OAuth client ID**.
+    -   Application type: **Desktop app**.
+    -   Name: `ACE Desktop Client`.
+    -   Click Create -> **Download JSON**.
+    -   Rename file to `credentials.json` and move it to `/config` folder (once created).
+4.  **Data Setup (Identity B)**:
+    -   Log in to Google Drive with **Identity B**.
+    -   Create a new Google Sheet named `Internship_Leads`.
+    -   Add headers: `Name`, `Company`, `Position`, `Email`, `LinkedIn`, `Status`.
+    -   (Optional) If Identity B is different from A, share the sheet with Identity A *if* using service accounts (not needed for this OAuth flow, but good for debugging).
 
 ## Phase 1: Environment & Project Structure
 - [ ] **Initialize Project**: Set up a new Python project using `uv`.
@@ -41,6 +61,7 @@ This plan outlines the steps to build the ACE system using LangGraph, Vertex AI,
     - **Scopes**: `['https://www.googleapis.com/auth/gmail.send']`
     - Implement `get_gmail_service()`:
         - Use `InstalledAppFlow.from_client_secrets_file` for first-time auth (**User Action Required: Browser Login**).
+        - **Crucial**: When the browser window opens for login, **Sign in with Identity B (The Sender)**.
         - Save/Load `token.json` for subsequent runs.
     - Implement `send_email()`: Construct MIME message (EmailMessage), base64 encode, and send via `users().messages().send()`.
 - [ ] **Resume Loader**: Helper to read `resume.md`.
