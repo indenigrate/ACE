@@ -119,19 +119,25 @@ def refine_draft_node(state: AgentState) -> Dict[str, Any]:
         "status": "reviewing"
     }
 
-def send_email_node(state: AgentState) -> Dict[str, Any]:
+def send_email_node(state: AgentState) -> Dict[str, Any>:
     """Sends the email using Gmail API."""
-    print(f"[DEBUG] Sending email to {state.get('selected_email')}...")
-    if not state.get('selected_email'):
-        print("[DEBUG] Error: No selected email found.")
+    recipients = state.get('selected_emails', [])
+    if not recipients:
+        print("[DEBUG] Error: No selected emails found.")
         return {"status": "error"}
         
-    send_email(
-        to=state['selected_email'],
-        subject=state['email_subject'],
-        body=state['email_body']
-    )
-    print("[DEBUG] Email sent successfully.")
+    print(f"[DEBUG] Sending email to {len(recipients)} recipients: {recipients}...")
+    
+    for recipient in recipients:
+        try:
+            send_email(
+                to=recipient,
+                subject=state['email_subject'],
+                body=state['email_body']
+            )
+            print(f"[DEBUG] Email sent to {recipient}")
+        except Exception as e:
+            print(f"[DEBUG] Failed to send to {recipient}: {e}")
     
     return {"status": "sent"}
 

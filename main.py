@@ -52,9 +52,9 @@ def main():
             
             # Handle Email Selection if needed
             candidate_emails = current_state.get('candidate_emails', [])
-            selected_email = current_state.get('selected_email')
+            selected_emails = current_state.get('selected_emails')
             
-            if len(candidate_emails) > 1 and not selected_email:
+            if len(candidate_emails) > 1 and not selected_emails:
                 console.print(Panel(
                     "[bold yellow]WARNING:[/bold yellow] Multiple emails found for this lead.",
                     border_style="yellow"
@@ -62,15 +62,28 @@ def main():
                 for i, email in enumerate(candidate_emails, 1):
                     console.print(f"  [{i}] {email}")
                 
-                choice = IntPrompt.ask(
-                    "Which email to target?", 
-                    choices=[str(i) for i in range(1, len(candidate_emails) + 1)],
-                    default=1
+                choice = Prompt.ask(
+                    "Target which email? (Type 'all' for all, or '1', '2'...)", 
+                    default="1"
                 )
-                selected_email = candidate_emails[choice - 1]
-                console.print(f"[green]Selected:[/green] {selected_email}\n")
+                
+                if choice.lower() == 'all':
+                    selected_emails = candidate_emails
+                else:
+                    try:
+                        idx = int(choice) - 1
+                        if 0 <= idx < len(candidate_emails):
+                            selected_emails = [candidate_emails[idx]]
+                        else:
+                            console.print("[red]Invalid index, defaulting to first.[/red]")
+                            selected_emails = [candidate_emails[0]]
+                    except ValueError:
+                        console.print("[red]Invalid input, defaulting to first.[/red]")
+                        selected_emails = [candidate_emails[0]]
+                        
+                console.print(f"[green]Selected:[/green] {', '.join(selected_emails)}\n")
             elif len(candidate_emails) == 1:
-                 selected_email = candidate_emails[0]
+                 selected_emails = [candidate_emails[0]]
             
             # Action Loop
             action = Prompt.ask(
@@ -81,7 +94,7 @@ def main():
             if action.lower() == 'y':
                 graph.update_state(config, {
                     "status": "approved", 
-                    "selected_email": selected_email
+                    "selected_emails": selected_emails
                 })
             elif action.lower() == 's':
                 graph.update_state(config, {"status": "skipped"})
