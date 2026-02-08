@@ -1,21 +1,27 @@
 from typing import Dict, Any
 from datetime import datetime
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_vertexai import ChatVertexAI
 from langchain_core.messages import HumanMessage, SystemMessage
+from pydantic import BaseModel, Field
 
 from src.state import AgentState
 from src.tools_sheets import fetch_lead, update_lead_status
 from src.tools_gmail import send_email
 from src.utils import load_resume
-from config.settings import GOOGLE_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+from config.settings import GOOGLE_PROJECT_ID, GOOGLE_API_KEY
 
-# Initialize Models
-# Gemini 1.5 Pro for initial drafting (high reasoning)
+# Define Structured Output Schema
+class EmailDraft(BaseModel):
+    """Schema for a cold email draft."""
+    subject: str = Field(description="The subject line of the email.")
+    body: str = Field(description="The main body content of the email, excluding the subject line.")
+
+# Initialize Models using ChatGoogleGenerativeAI (Vertex AI mode enabled via env)
 model_pro = ChatGoogleGenerativeAI(
     model="gemini-3-pro-preview",
     google_api_key=GOOGLE_API_KEY
 )
-# Gemini 1.5 Flash for rapid edits
 model_flash = ChatGoogleGenerativeAI(
     model="gemini-3-flash-preview",
     google_api_key=GOOGLE_API_KEY
@@ -37,107 +43,124 @@ def fetch_lead_node(state: AgentState) -> Dict[str, Any]:
     }
 
 def generate_draft_node(state: AgentState) -> Dict[str, Any]:
-    """Generates the initial email draft using Gemini 2.5 Pro."""
+    """Generates the initial email draft using Gemini 1.5 Pro with Structured Output."""
     print(f"[DEBUG] Generating draft for {state['recipient_name']}...")
-    prompt = f"""
-    You are an expert career coach. Write a concise, high-impact cold email for an internship.
     
-    Target Company: {state['company_name']}
-    Target Position: {state['position']}
-    Recipient Name: {state['recipient_name']}
-    
-    My Resume Content:
+    # System Prompt
+    system_prompt = """You are an expert technical copywriter. Your task is to write a high-impact, "human-sounding" cold email to a CTO or Engineering VP.
+
+### GOAL
+Write a cold email that gets a reply by sounding like a capable engineer, not a desperate student.
+
+### CRITICAL RULES (Strictly Enforced)
+1. **NO FLUFF:** BANNED phrases include "I hope this email finds you well," "I am writing to express my keen interest," "thrilled to apply," "esteemed company," "perfect match," or "seamless integration."
+2. **THE HOOK:** Start immediately by connecting the candidate's specific work to the company's likely engineering challenges (e.g., Scale, Reliability, or Agentic Workflows).
+3. **THE PROOF:** You MUST mention specific technical details from the resume context. 
+   - Prioritize concrete engineering achievements over generic skills.
+   - Show, don't tell.
+4. **THE TONE:** Professional, concise, and confident. Sound like a peer.
+5. **LENGTH:** Keep the body under 125 words.
+"""
+
+    # User Prompt
+    user_prompt = f"""
+    ### INPUT DATA
+    - **Target Company:** {state['company_name']}
+    - **Target Recipient:** {state['recipient_name']} ({state['position']})
+    - **Candidate Resume/Context:**
     {state['resume_content']}
-    
-    Guidelines:
-    - Connect specific projects/skills from the resume to the company's domain.
-    - Keep it under 150 words.
-    - Professional but enthusiastic tone.
-    - Include a clear call to action.
-    - Output should be in format:
-    Subject: [Subject Line]
-    ---
-    [Email Body]
+
+    Generate the email subject and body based on the above rules.
+    Subject Line should be punchy (3-5 words).
     """
     
-    response = model_pro.invoke([HumanMessage(content=prompt)])
-    content = response.content
+    # Bind structured output
+    structured_llm = model_pro.with_structured_output(EmailDraft)
     
-    # Handle list-based content (common in newer LangChain versions)
-    if isinstance(content, list):
-        text_parts = []
-        for part in content:
-            if isinstance(part, dict) and 'text' in part:
-                text_parts.append(part['text'])
-            elif isinstance(part, str):
-                text_parts.append(part)
-        content = "".join(text_parts)
-    
-    # Simple parsing
-    if "Subject:" in content and "---" in content:
-        parts = content.split("---", 1)
-        subject = parts[0].replace("Subject:", "").strip()
-        body = parts[1].strip()
-    else:
-        subject = f"Internship Inquiry - {state['recipient_name']}"
-        body = content
+    # Invoke
+    try:
+        response: EmailDraft = structured_llm.invoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt)
+        ])
         
-    return {
-        "email_subject": subject,
-        "email_body": body,
-        "status": "reviewing"
-    }
+        return {
+            "email_subject": response.subject,
+            "email_body": response.body,
+            "status": "reviewing"
+        }
+    except Exception as e:
+        print(f"[DEBUG] Error generating draft: {e}")
+        # Fallback if structured output fails (rare with Gemini)
+        return {
+            "email_subject": "Internship Inquiry",
+            "email_body": "Error generating draft. Please refine.",
+            "status": "reviewing"
+        }
 
 def refine_draft_node(state: AgentState) -> Dict[str, Any]:
-    """Refines the email draft based on user feedback using Gemini 2.5 Flash."""
+    """Refines the email draft based on user feedback using Gemini 1.5 Flash."""
     print("[DEBUG] Refining draft...")
-    prompt = f"""
-    Rewrite the email below based strictly on this feedback: "{state['user_feedback']}"
     
-    Current Email Body:
-    {state['email_body']}
-    
-    Keep the tone professional and maintain the same subject if it's still appropriate.
+    system_prompt = """You are an expert technical editor. 
+    Rewrite the email strictly based on the user's feedback while MAINTAINING the "Technical Copywriter" persona:
+    - NO FLUFF (e.g., "I hope this email finds you well").
+    - Professional, peer-to-peer tone.
+    - Concise (under 125 words).
     """
     
-    response = model_flash.invoke([HumanMessage(content=prompt)])
-    content = response.content
+    user_prompt = f"""
+    Feedback: "{state['user_feedback']}"
     
-    # Handle list-based content
-    if isinstance(content, list):
-        text_parts = []
-        for part in content:
-            if isinstance(part, dict) and 'text' in part:
-                text_parts.append(part['text'])
-            elif isinstance(part, str):
-                text_parts.append(part)
-        content = "".join(text_parts)
+    Current Subject: {state['email_subject']}
+    Current Body:
+    {state['email_body']}
     
-    return {
-        "email_body": content,
-        "iteration_count": state['iteration_count'] + 1,
-        "status": "reviewing"
-    }
+    Return the updated Subject and Body.
+    """
+    
+    structured_llm = model_flash.with_structured_output(EmailDraft)
+    
+    try:
+        response: EmailDraft = structured_llm.invoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt)
+        ])
+        
+        return {
+            "email_subject": response.subject,
+            "email_body": response.body,
+            "iteration_count": state['iteration_count'] + 1,
+            "status": "reviewing"
+        }
+    except Exception as e:
+        print(f"[DEBUG] Error refining draft: {e}")
+        return {
+            "email_body": f"Error refining draft: {e}",
+            "status": "reviewing"
+        }
 
-def send_email_node(state: AgentState) -> Dict[str, Any>:
+def send_email_node(state: AgentState) -> Dict[str, Any]:
     """Sends the email using Gmail API."""
     recipients = state.get('selected_emails', [])
     if not recipients:
         print("[DEBUG] Error: No selected emails found.")
         return {"status": "error"}
-        
-    print(f"[DEBUG] Sending email to {len(recipients)} recipients: {recipients}...")
     
-    for recipient in recipients:
-        try:
-            send_email(
-                to=recipient,
-                subject=state['email_subject'],
-                body=state['email_body']
-            )
-            print(f"[DEBUG] Email sent to {recipient}")
-        except Exception as e:
-            print(f"[DEBUG] Failed to send to {recipient}: {e}")
+    # Join all recipients into a single comma-separated string
+    to_field = ", ".join(recipients)
+    print(f"[DEBUG] Sending single email to: {to_field}...")
+    
+    try:
+        send_email(
+            to=to_field,
+            subject=state['email_subject'],
+            body=state['email_body']
+        )
+        print(f"[DEBUG] Email sent successfully.")
+    except Exception as e:
+        print(f"[DEBUG] Failed to send email: {e}")
+        return {"status": "error"}
     
     return {"status": "sent"}
 

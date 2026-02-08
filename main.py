@@ -64,7 +64,7 @@ def main():
                 
                 choice = Prompt.ask(
                     "Target which email? (Type 'all' for all, or '1', '2'...)", 
-                    default="1"
+                    default="all"
                 )
                 
                 if choice.lower() == 'all':

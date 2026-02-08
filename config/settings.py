@@ -22,13 +22,18 @@ GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID")
 GOOGLE_PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
+# Enable Vertex AI with API Key mode
+os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "True")
+os.environ["GOOGLE_API_KEY"] = GOOGLE_API_KEY
+
 # Redis Config
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 
 # Scopes
 SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets',
-    'https://www.googleapis.com/auth/gmail.send'
+    'https://www.googleapis.com/auth/gmail.send',
+    'https://www.googleapis.com/auth/cloud-platform'
 ]
 
 # File Paths

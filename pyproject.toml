@@ -7,6 +7,7 @@ requires-python = ">=3.10"
 dependencies = [
     "langgraph",
     "langchain-google-genai",
+    "langchain-google-vertexai",
     "rich",
     "google-api-python-client",
     "google-auth-oauthlib",
