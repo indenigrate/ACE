@@ -268,6 +268,7 @@ def update_sheet_node(state: AgentState) -> Dict[str, Any]:
     status_text = ""
     current_status = state['status']
     candidate_emails = state.get('candidate_emails', [])
+    mode = state.get('mode', 'interactive')
     
     # Auto-detect skip condition (no emails found)
     if not candidate_emails and current_status == 'drafting':
@@ -277,7 +278,8 @@ def update_sheet_node(state: AgentState) -> Dict[str, Any]:
     print(f"[DEBUG] Processing status update for Row {state['row_index']}. Current Status: {current_status}")
     
     if current_status == 'sent':
-        status_text = f"Sent: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        status_prefix = "Drafted" if mode == 'auto_draft' else "Sent"
+        status_text = f"{status_prefix}: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
     elif current_status == 'skipped':
         status_text = "Skipped - No Email"
     
