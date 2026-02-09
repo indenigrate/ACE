@@ -46,22 +46,46 @@ def generate_draft_node(state: AgentState) -> Dict[str, Any]:
     """Generates the initial email draft using Gemini 1.5 Pro with Structured Output."""
     print(f"[DEBUG] Generating draft for {state['recipient_name']}...")
     
-    # System Prompt
-    system_prompt = """You are an expert technical copywriter. Your task is to write a high-impact, "human-sounding" cold email to a CTO or Engineering VP.
+    # System Prompt Template
+    system_prompt = f"""You are a direct, systems-focused engineering applicant. Write a high-impact cold email for an internship.
 
-### GOAL
-Write a cold email that gets a reply by sounding like a capable engineer, not a desperate student.
+### STRICT STYLE GUIDE (Mimic the Reference PDF)
+1.  **Structure:** Hook -> Credibility (15k users) -> Technical Deep Dive (3 Bullets) -> The Ask.
+2.  **Formatting:** Use bolding exactly as shown in the template (e.g., **Concept:**).
+3.  **Tone:** Professional, architectural, and grounded. No "fluff" or generic praise.
+4.  **Metrics:** Always mention "15,000+ active students" and "GitHub: **@indenigrate**".
 
-### CRITICAL RULES (Strictly Enforced)
-1. **NO FLUFF:** BANNED phrases include "I hope this email finds you well," "I am writing to express my keen interest," "thrilled to apply," "esteemed company," "perfect match," or "seamless integration."
-2. **THE HOOK:** Start immediately by connecting the candidate's specific work to the company's likely engineering challenges (e.g., Scale, Reliability, or Agentic Workflows).
-3. **THE PROOF:** You MUST mention specific technical details from the resume context. 
-   - Prioritize concrete engineering achievements over generic skills.
-   - Show, don't tell.
-4. **THE TONE:** Professional, concise, and confident. Sound like a peer.
-5. LENGTH: Keep the body under 125 words.
-6. NO SIGNATURE: Do NOT include any signature, sign-off (e.g., "Best," "Sincerely," "Devansh"), or name at the end. End the email directly after the call to action or final sentence.
+### EMAIL TEMPLATE
+Subject: [Value Proposition] (Engineering Intern, IIT KGP)
+
+Hi {state['recipient_name']},
+
+[Sentence 1: Research Hook. "I’ve been following {state['company_name']}’s work on [Specific Domain/Tech]..."]
+
+I am writing to you because I build software that automates complex processes. As the **Technology Coordinator at IIT Kharagpur**, I manage campus platforms for **15,000+ students**. This role has taught me that true efficiency comes from reliability, not just features.
+
+Technically, I am focused on **[Mention: Agentic AI / Stateful Systems / Reliability]**. I recently engineered a **[Mention: stateful system / LangGraph agent]** (GitHub: **@indenigrate**) designed to handle [Specific Challenge relevant to company]. Unlike standard chatbots, this agent:
+
+* **Maintains State:** Uses **Redis** to persist context across long, multi-stage sessions [or relevant backend skill].
+* **Enforces Logic:** I built **custom middleware** to ensure the agent adheres to strict business rules and validation steps.
+* **Handles Cycles:** It uses a cyclic graph architecture to loop through tasks autonomously [or relevant architectural skill].
+
+I believe this experience in building **[Summary of skills]** aligns perfectly with {state['company_name']}’s engineering goals.
+
+I am writing to inquire about internship opportunities with your team. Even if you aren't hiring, I would genuinely value your advice: what would you suggest a systems-focused student do to stand out in this competitive field?
+
+[STOP HERE - DO NOT ADD A SIGNATURE]
+
+### CRITICAL INSTRUCTIONS
+1.  **NO FLUFF:** Banned words: "thrilled," "seamless," "tapestry," "delve," "cutting-edge."
+2.  **ADAPT THE BULLETS:** The bullet points MUST explain your specific technical work (LangGraph, Redis, Middleware, Arch Linux) but phrased in a way that solves *their* problem.
+    * *If Fintech:* Emphasize **Logic/Middleware** (safety).
+    * *If AI:* Emphasize **Cycles/Graph** (reasoning).
+    * *If Ops:* Emphasize **State/Redis** (reliability).
+3.  **SUBJECT LINE:** Must be specific. E.g., "Automating complex ops with AI" or "Stateful Systems & Reliability".
+4.  **NO SIGNATURE:** Do NOT include any signature or sign-off (e.g., "Best," "Sincerely") or your name at the end. The email should end with the "The Ask" sentence.
 """
+
     # User Prompt
     user_prompt = f"""
     ### INPUT DATA

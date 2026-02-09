@@ -1,5 +1,6 @@
 import base64
 import html
+import re
 from email.message import EmailMessage
 from email.policy import default
 from googleapiclient.discovery import build
@@ -9,21 +10,85 @@ def get_gmail_service():
     creds = get_credentials()
     return build('gmail', 'v1', credentials=creds)
 
-def clean_text(text: str) -> str:
+def clean_text_plain(text: str) -> str:
     """
-    Removes single newlines (wrapping) but keeps double newlines (paragraphs).
+    Sanitizes plain text: merges wrapped lines but keeps paragraphs and lists preserved.
     """
-    if not text:
-        return ""
+    if not text: return ""
+    lines = text.split('\n')
+    output = []
+    buffer = []
     
-    # 1. Split text into paragraphs using double newlines
-    paragraphs = text.split('\n\n')
+    def flush():
+        if buffer:
+            output.append(" ".join(buffer))
+            buffer.clear()
+            
+    for line in lines:
+        line = line.strip()
+        if not line:
+            flush()
+            output.append("") # Preserve paragraph break
+        elif line.startswith('* '):
+            flush()
+            output.append(line)
+        else:
+            buffer.append(line)
+    flush()
+    return "\n".join(output)
+
+def markdown_to_html(text: str) -> str:
+    """
+    Converts Markdown (bold, bullets) to HTML and handles paragraph wrapping smartly.
+    """
+    if not text: return ""
     
-    # 2. For each paragraph, replace single newlines with a space
-    cleaned_paragraphs = [p.replace('\n', ' ').strip() for p in paragraphs]
+    # 1. Escape HTML first
+    text = html.escape(text)
     
-    # 3. Rejoin with double newlines
-    return '\n\n'.join(cleaned_paragraphs)
+    # 2. Bold: **text** -> <strong>text</strong>
+    text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', text)
+    
+    # 3. Structure Parsing
+    lines = text.split('\n')
+    html_output = []
+    in_list = False
+    buffer_text = []
+    
+    def flush_buffer():
+        if buffer_text:
+            paragraph = " ".join(buffer_text).strip()
+            if paragraph:
+                html_output.append(f'<p style="margin: 0 0 12px 0;">{paragraph}</p>')
+            buffer_text.clear()
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            flush_buffer()
+            if in_list:
+                html_output.append('</ul>')
+                in_list = False
+            continue
+            
+        if line.startswith('* '):
+            flush_buffer()
+            if not in_list:
+                html_output.append('<ul style="margin: 0 0 12px 0; padding-left: 20px;">')
+                in_list = True
+            content = line[2:]
+            html_output.append(f'<li style="margin-bottom: 5px;">{content}</li>')
+        else:
+            if in_list:
+                html_output.append('</ul>')
+                in_list = False
+            buffer_text.append(line)
+            
+    flush_buffer()
+    if in_list:
+        html_output.append('</ul>')
+        
+    return "".join(html_output)
 
 def send_email(to: str, subject: str, body: str):
     """
@@ -32,22 +97,21 @@ def send_email(to: str, subject: str, body: str):
     """
     service = get_gmail_service()
     
-    # 1. Sanitize the text structure first
-    sanitized_body = clean_text(body)
+    # 1. Generate Plain Text Version
+    plain_text_body = clean_text_plain(body)
     
-    # 2. Create the container message
+    # 2. Generate HTML Version (with Markdown conversion)
+    html_body_content = markdown_to_html(body)
+    
+    # 3. Create the container message
     message = EmailMessage()
     message['To'] = to
     message['Subject'] = subject
 
-    # 3. Part A: The Plain Text Fallback (Spam filters read this)
-    message.set_content(sanitized_body)
+    # 4. Part A: The Plain Text Fallback
+    message.set_content(plain_text_body)
 
-    # 4. Part B: The HTML Version (Humans see this)
-    #    We convert newlines to <br> and use a standard div
-    #    to mimic a manually written Gmail message.
-    html_body_content = html.escape(sanitized_body).replace('\n', '<br>')
-    
+    # 5. Part B: The HTML Version
     signature = """
 <div style="font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #222; line-height: 1.4; margin-top: 20px;">
   <p style="margin: 0 0 4px 0; font-size: 13px; font-weight: bold; color: #000;">
@@ -78,8 +142,7 @@ def send_email(to: str, subject: str, body: str):
     
     message.add_alternative(html_structure, subtype='html')
     
-    # 5. Encode and Send
-    #    We still use the policy to prevent header folding issues
+    # 6. Encode and Send
     user_policy = default.clone(max_line_length=None)
     
     encoded_message = base64.urlsafe_b64encode(
