@@ -58,7 +58,7 @@ def fetch_lead():
 
     # 2. Iterate Data
     for i, row in enumerate(values[1:], start=2):
-        print(f"[DEBUG] Scanning Row {i}: {row}")
+        # print(f"[DEBUG] Scanning Row {i}: {row}")
         # Check status at the dynamic index
         status = row[status_index] if len(row) > status_index else ""
         

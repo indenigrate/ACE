@@ -28,9 +28,9 @@ def display_draft(state: AgentState):
 
     # RAW DEBUG PRINT
     raw_body = state.get('email_body', '')
-    print("\n[DEBUG] --- RAW BODY (Inspect for hidden newlines) ---")
-    print(f"[START BODY]{raw_body}[END BODY]")
-    print("[DEBUG] -----------------------------------------------\n")
+    # print("\n[DEBUG] --- RAW BODY (Inspect for hidden newlines) ---")
+    # print(f"[START BODY]{raw_body}[END BODY]")
+    # print("[DEBUG] -----------------------------------------------\n")
 
 def main():
     graph = create_graph()
@@ -103,7 +103,11 @@ def main():
                     "selected_emails": selected_emails
                 })
             elif action.lower() == 's':
-                graph.update_state(config, {"status": "skipped"})
+                # Explicitly clear selected_emails to avoid carrying over state if skipped
+                graph.update_state(config, {
+                    "status": "skipped",
+                    "selected_emails": None
+                })
             else:
                 graph.update_state(config, {"user_feedback": action, "status": "refining"})
             
