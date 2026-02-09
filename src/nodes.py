@@ -72,6 +72,11 @@ Write a cold email that gets a reply by sounding like a capable engineer, not a 
 
     Generate the email subject and body based on the above rules.
     Subject Line should be punchy (3-5 words).
+    
+    IMPORTANT FORMATTING:
+    - Do NOT insert line breaks (newlines) within sentences. 
+    - Only use newlines for paragraph breaks.
+    - The body text should flow naturally.
     """
     
     # Bind structured output
