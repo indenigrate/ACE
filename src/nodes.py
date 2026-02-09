@@ -46,7 +46,8 @@ def fetch_lead_node(state: AgentState) -> Dict[str, Any]:
         "resume_content": load_resume(),
         "search_summary": "Pending Research...",
         "company_domain": "Tech",
-        "iteration_count": 0
+        "iteration_count": 0,
+        "selected_emails": None # Reset selection for new lead
     }
 
 def research_node(state: AgentState) -> Dict[str, Any]:
