@@ -102,7 +102,7 @@ def main():
                     "status": "approved", 
                     "selected_emails": selected_emails
                 })
-            elif action.lower() == 's':
+            elif action.lower() in ['s', 'skip']:
                 # Explicitly clear selected_emails to avoid carrying over state if skipped
                 graph.update_state(config, {
                     "status": "skipped",
@@ -112,7 +112,7 @@ def main():
                 graph.update_state(config, {"user_feedback": action, "status": "refining"})
             
             # Resume execution
-            print(f"[DEBUG] Resuming graph execution from: {state.next}")
+            print(f"[LOG] Resuming workflow...")
             graph.invoke(None, config)
 
 if __name__ == "__main__":
