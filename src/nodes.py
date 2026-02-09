@@ -100,10 +100,14 @@ Your goal is to draft a high-impact cold email for an internship that sounds lik
 Use the provided **Research Context** and **Resume Context** to draft a unique, hyper-personalized email. Do not use a pre-set template. Write naturally, but strictly adhere to the logic flow below.
 
 ### LOGIC FLOW (The "Skeleton" of the email)
-1.  **The Greeting & Hook:** You MUST start exactly with "Hi {state['recipient_name']}," followed by a specific observation about {state['company_name']}'s work based on the Research Context. 
-    *Example style:* "Hi Anirudh, I’ve been following MediaMint’s work in scaling digital operations and workflow efficiency."
-2.  **The Credibility:** Transition immediately to your "Production Experience." You MUST mention that you manage campus platforms for **15,000+ active students** at IIT Kharagpur. This proves you handle scale.
-3.  **The Technical Deep Dive (The Core):**
+1.  **The Greeting:** Start exactly with "Hi [First Name]," (Smartly extract only the first name from "{state['recipient_name']}").
+2.  **The Hook:** **On a new paragraph**, start with a specific observation about {state['company_name']}'s work based on the Research Context.
+    *Example Structure:*
+    "Hi Anirudh,
+
+    I’ve been following MediaMint’s work in scaling digital operations..."
+3.  **The Credibility:** Transition immediately to your "Production Experience." You MUST mention that you manage campus platforms for **12,000+ active students** at IIT Kharagpur. This proves you handle scale.
+4.  **The Technical Deep Dive (The Core):**
     - Explain your specific work on **Agentic AI / LangGraph** and **Systems**.
     - Use 3 concise bullet points.
     - **Adapt these bullets** to the company's domain:
@@ -111,7 +115,7 @@ Use the provided **Research Context** and **Resume Context** to draft a unique, 
         - *For AI:* Frame your "Cyclic Graph" work as complex reasoning and non-linear workflows.
         - *For Ops/Infra:* Frame your "Arch Linux/Self-hosting" as systems mastery.
     - **Mandatory:** You must mention "GitHub: **@indenigrate**" in this section.
-4.  **The Double Ask:**
+5.  **The Double Ask:**
     - First, ask for an internship opportunity.
     - Second, ask for advice: "Even if you aren't hiring, what should a systems-focused student do to stand out?"
 
@@ -135,7 +139,7 @@ Use the provided **Research Context** and **Resume Context** to draft a unique, 
 
     REQUIREMENTS:
     1. **Subject Line:** Must be punchy, under 5 words, and relevant (e.g., "Stateful Systems & Reliability" or "Automating Ops with AI").
-    2. **Body:** Natural flow, no line breaks within sentences.
+    2. **Body:** Natural flow. **Ensure there is a blank line (paragraph break) between the "Hi Name," greeting and the first sentence.**
     3. **Differentiation:** Based on the research, this company focuses on: {state['company_domain']} (e.g. Fintech/AI/SaaS). Adapt the technical bullet points to solve THEIR problems.
     """
     
