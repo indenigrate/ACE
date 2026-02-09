@@ -17,6 +17,11 @@ class EmailDraft(BaseModel):
     subject: str = Field(description="The subject line of the email.")
     body: str = Field(description="The main body content of the email, excluding the subject line.")
 
+class ResearchResult(BaseModel):
+    """Schema for research findings about a company and recipient."""
+    search_summary: str = Field(description="A concise paragraph summarizing the key findings to use as an email hook.")
+    company_domain: str = Field(description="The specific technical domain (e.g. Fintech, AI, SaaS).")
+
 # Initialize Models using ChatGoogleGenerativeAI (Vertex AI mode enabled via env)
 model_pro = ChatGoogleGenerativeAI(
     model="gemini-3-pro-preview",
@@ -51,9 +56,12 @@ def fetch_lead_node(state: AgentState) -> Dict[str, Any]:
             selected_emails = candidate_emails
             print(f"[LOG] Auto-selected emails for draft: {selected_emails}")
 
+    resume_content = load_resume()
+    # print(f"[LOG] Resume Content Loaded (Snippet): {resume_content[:100]}...")
+
     return {
         **lead,
-        "resume_content": load_resume(),
+        "resume_content": resume_content,
         "search_summary": "Pending Research...",
         "company_domain": "Tech",
         "iteration_count": 0,
@@ -72,18 +80,18 @@ def research_node(state: AgentState) -> Dict[str, Any]:
     1. What is the company's core technical domain? (e.g. Fintech, EdTech, AI Infrastructure, SaaS)
     2. Find 1-2 specific, recent technical initiatives, blog posts, or news about them.
     3. If the recipient has a public profile (LinkedIn/Twitter/GitHub), find 1 relevant professional detail.
-
-    Output a JSON object with keys:
-    - "search_summary": A concise paragraph summarizing the key findings to use as an email hook.
-    - "company_domain": The specific technical domain (e.g. "Fintech").
     """
     
+    # Bind structured output
+    structured_researcher = model_research.with_structured_output(ResearchResult)
+    
     try:
-        response = model_research.invoke(prompt)
-        print(f"[LOG] Research Summary: {response.content}")
+        response: ResearchResult = structured_researcher.invoke(prompt)
+        print(f"[LOG] Research completed for {state['company_name']}.")
+        print(f"[LOG] Detected Domain: {response.company_domain}")
         return {
-            "search_summary": response.content,
-            "company_domain": "Tech" 
+            "search_summary": response.search_summary,
+            "company_domain": response.company_domain
         }
     except Exception as e:
         print(f"[LOG] Research failed: {e}")
@@ -115,7 +123,7 @@ Use the provided **Research Context** and **Resume Context** to draft a unique, 
 4.  **The Technical Deep Dive (The Core):**
     - Explain your specific work on **Agentic AI / LangGraph** and **Systems**.
     - Use 3 concise bullet points.
-    - **Adapt these bullets** to the company's domain:
+    - **Adapt these bullets** to the company's domain below are the examples:
         - *For Fintech:* Frame your "Middleware" work as safety/validation and "Redis" as transaction reliability also mention the custom http server in go.
         - *For AI:* Frame your "Cyclic Graph" work as complex reasoning and non-linear workflows.
         - *For Ops/Infra:* Frame your "Arch Linux/Self-hosting" as systems mastery and a custom http server in go.
@@ -224,18 +232,34 @@ def send_email_node(state: AgentState) -> Dict[str, Any]:
     
     # Join all recipients into a single comma-separated string
     to_field = ", ".join(recipients)
-    print(f"[DEBUG] Sending single email to: {to_field}...")
     
-    try:
-        send_email(
-            to=to_field,
-            subject=state['email_subject'],
-            body=state['email_body']
-        )
-        print(f"[DEBUG] Email sent successfully.")
-    except Exception as e:
-        print(f"[DEBUG] Failed to send email: {e}")
-        return {"status": "error"}
+    mode = state.get('mode', 'interactive')
+    
+    if mode == 'auto_draft':
+        print(f"[DEBUG] [Auto Mode] Creating draft for: {to_field}...")
+        try:
+            create_draft(
+                to=to_field,
+                subject=state['email_subject'],
+                body=state['email_body']
+            )
+            print(f"[DEBUG] Draft created successfully.")
+        except Exception as e:
+            print(f"[DEBUG] Failed to create draft: {e}")
+            return {"status": "error"}
+            
+    else: # Interactive Mode
+        print(f"[DEBUG] [Interactive] Sending email to: {to_field}...")
+        try:
+            send_email(
+                to=to_field,
+                subject=state['email_subject'],
+                body=state['email_body']
+            )
+            print(f"[DEBUG] Email sent successfully.")
+        except Exception as e:
+            print(f"[DEBUG] Failed to send email: {e}")
+            return {"status": "error"}
     
     return {"status": "sent"}
 
