@@ -34,25 +34,35 @@ model_research = ChatGoogleGenerativeAI(
 
 def fetch_lead_node(state: AgentState) -> Dict[str, Any]:
     """Fetches the next lead from Google Sheets."""
-    print("[DEBUG] Fetching next lead...")
+    print("[LOG] Fetching next lead...")
     lead = fetch_lead()
     if not lead:
-        print("[DEBUG] No more leads found.")
+        print("[LOG] No more leads found. Ending workflow.")
         return {"status": "end"}
     
-    print(f"[DEBUG] Lead found at Row {lead['row_index']}: {lead['recipient_name']}")
+    print(f"[LOG] Processing Lead: {lead['recipient_name']} at {lead['company_name']}")
+    
+    # Auto-select emails if in auto_draft mode
+    selected_emails = None
+    if state.get('mode') == 'auto_draft':
+        candidate_emails = lead.get('candidate_emails', [])
+        if candidate_emails:
+            # Select ALL candidate emails for the draft
+            selected_emails = candidate_emails
+            print(f"[LOG] Auto-selected emails for draft: {selected_emails}")
+
     return {
         **lead,
         "resume_content": load_resume(),
         "search_summary": "Pending Research...",
         "company_domain": "Tech",
         "iteration_count": 0,
-        "selected_emails": None # Reset selection for new lead
+        "selected_emails": selected_emails 
     }
 
 def research_node(state: AgentState) -> Dict[str, Any]:
     """Performs Google Search to gather context on the company and recipient."""
-    print(f"[DEBUG] Researching {state['company_name']}...")
+    print(f"[LOG] Researching target: {state['company_name']}...")
     
     prompt = f"""
     Research the following target for a cold email:
@@ -70,19 +80,13 @@ def research_node(state: AgentState) -> Dict[str, Any]:
     
     try:
         response = model_research.invoke(prompt)
-        # Simple parsing since we didn't force JSON mode on the model itself yet, 
-        # but Gemini usually follows instructions well. 
-        # For robustness, we'll just treat the whole content as the summary for now 
-        # and extract the domain heuristically if needed, or just ask for text.
-        
-        # Let's refine the prompt to just ask for the text to avoid JSON parsing issues in this quick setup.
-        # We can split the domain and summary via a delimiter.
+        print(f"[LOG] Research Summary: {response.content}")
         return {
             "search_summary": response.content,
-            "company_domain": "Tech" # Placeholder until we parse it better or rely on the summary
+            "company_domain": "Tech" 
         }
     except Exception as e:
-        print(f"[DEBUG] Research failed: {e}")
+        print(f"[LOG] Research failed: {e}")
         return {
             "search_summary": f"Could not research {state['company_name']}.",
             "company_domain": "Tech"
