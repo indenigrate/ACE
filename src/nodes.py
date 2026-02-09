@@ -112,9 +112,9 @@ Use the provided **Research Context** and **Resume Context** to draft a unique, 
     - Explain your specific work on **Agentic AI / LangGraph** and **Systems**.
     - Use 3 concise bullet points.
     - **Adapt these bullets** to the company's domain:
-        - *For Fintech:* Frame your "Middleware" work as safety/validation and "Redis" as transaction reliability.
+        - *For Fintech:* Frame your "Middleware" work as safety/validation and "Redis" as transaction reliability also mention the custom http server in go.
         - *For AI:* Frame your "Cyclic Graph" work as complex reasoning and non-linear workflows.
-        - *For Ops/Infra:* Frame your "Arch Linux/Self-hosting" as systems mastery.
+        - *For Ops/Infra:* Frame your "Arch Linux/Self-hosting" as systems mastery and a custom http server in go.
     - **Mandatory:** You must mention "GitHub: **@indenigrate**" in this section.
 5.  **The Double Ask:**
     - First, ask for an internship opportunity.
