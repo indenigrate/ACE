@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from src.state import AgentState
 from src.tools_sheets import fetch_lead, update_lead_status
-from src.tools_gmail import send_email
+from src.tools_gmail import send_email, create_draft
 from src.utils import load_resume
 from langchain_google_genai import ChatGoogleGenerativeAI
 from config.settings import GOOGLE_PROJECT_ID, GOOGLE_API_KEY
@@ -139,7 +139,7 @@ Use the provided **Research Context** and **Resume Context** to draft a unique, 
     Draft the email subject and body based on the system instructions.
 
     REQUIREMENTS:
-    1. **Subject Line:** Must be punchy, under 5 words, and relevant, suggested format '[Specific Technical Hook] (Engineering Intern, IIT KGP)', adapting the hook to the company's domain (e.g., 'Stateful AI & Systems' or 'Automating Complex Ops').".
+    1. **Subject Line:** Must be punchy, under 8 words, and relevant, suggested format '[Specific Technical Hook] (Engineering Intern, IIT KGP)', adapting the hook to the company's domain (e.g., 'Stateful AI & Systems' or 'Automating Complex Ops').".
     2. **Body:** Natural flow. **Ensure there is a blank line (paragraph break) between the "Hi Name," greeting and the first sentence.**
     3. **Differentiation:** Based on the research, this company focuses on: {state['company_domain']} (e.g. Fintech/AI/SaaS). Adapt the technical bullet points to solve THEIR problems.
     """
