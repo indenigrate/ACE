@@ -26,6 +26,12 @@ def display_draft(state: AgentState):
         title="Email Draft"
     ))
 
+    # RAW DEBUG PRINT
+    raw_body = state.get('email_body', '')
+    print("\n[DEBUG] --- RAW BODY (Inspect for hidden newlines) ---")
+    print(f"[START BODY]{raw_body}[END BODY]")
+    print("[DEBUG] -----------------------------------------------\n")
+
 def main():
     graph = create_graph()
     config = {"configurable": {"thread_id": "ace_session"}}

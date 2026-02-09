@@ -59,9 +59,9 @@ Write a cold email that gets a reply by sounding like a capable engineer, not a 
    - Prioritize concrete engineering achievements over generic skills.
    - Show, don't tell.
 4. **THE TONE:** Professional, concise, and confident. Sound like a peer.
-5. **LENGTH:** Keep the body under 125 words.
+5. LENGTH: Keep the body under 125 words.
+6. NO SIGNATURE: Do NOT include any signature, sign-off (e.g., "Best," "Sincerely," "Devansh"), or name at the end. End the email directly after the call to action or final sentence.
 """
-
     # User Prompt
     user_prompt = f"""
     ### INPUT DATA
@@ -112,6 +112,7 @@ def refine_draft_node(state: AgentState) -> Dict[str, Any]:
     - NO FLUFF (e.g., "I hope this email finds you well").
     - Professional, peer-to-peer tone.
     - Concise (under 125 words).
+    - NO SIGNATURE: Do NOT include any signature or sign-off at the end.
     """
     
     user_prompt = f"""
