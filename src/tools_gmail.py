@@ -1,6 +1,7 @@
 import base64
 import html
 import re
+import markdown
 from email.message import EmailMessage
 from email.policy import default
 from googleapiclient.discovery import build
@@ -39,56 +40,19 @@ def clean_text_plain(text: str) -> str:
 
 def markdown_to_html(text: str) -> str:
     """
-    Converts Markdown (bold, bullets) to HTML and handles paragraph wrapping smartly.
+    Converts Markdown (bold, bullets) to HTML using the python-markdown library.
     """
     if not text: return ""
     
-    # 1. Escape HTML first
-    text = html.escape(text)
+    # Convert Markdown to HTML
+    # We use 'extra' extension if needed, but standard markdown covers basic usage.
+    html_content = markdown.markdown(text)
     
-    # 2. Bold: **text** -> <strong>text</strong>
-    text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', text)
+    # Optional: Tweaks for specific email styling if needed (e.g., margins)
+    # But usually the raw HTML from markdown is sufficient for the structure.
+    # We can inject inline styles if strictly necessary, but let's start with standard output.
     
-    # 3. Structure Parsing
-    lines = text.split('\n')
-    html_output = []
-    in_list = False
-    buffer_text = []
-    
-    def flush_buffer():
-        if buffer_text:
-            paragraph = " ".join(buffer_text).strip()
-            if paragraph:
-                html_output.append(f'<p style="margin: 0 0 12px 0;">{paragraph}</p>')
-            buffer_text.clear()
-
-    for line in lines:
-        line = line.strip()
-        if not line:
-            flush_buffer()
-            if in_list:
-                html_output.append('</ul>')
-                in_list = False
-            continue
-            
-        if line.startswith('* '):
-            flush_buffer()
-            if not in_list:
-                html_output.append('<ul style="margin: 0 0 12px 0; padding-left: 20px;">')
-                in_list = True
-            content = line[2:]
-            html_output.append(f'<li style="margin-bottom: 5px;">{content}</li>')
-        else:
-            if in_list:
-                html_output.append('</ul>')
-                in_list = False
-            buffer_text.append(line)
-            
-    flush_buffer()
-    if in_list:
-        html_output.append('</ul>')
-        
-    return "".join(html_output)
+    return html_content
 
 def send_email(to: str, subject: str, body: str):
     """

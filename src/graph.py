@@ -4,6 +4,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from src.state import AgentState
 from src.nodes import (
     fetch_lead_node,
+    research_node,  # Added import
     generate_draft_node,
     refine_draft_node,
     send_email_node,
@@ -35,6 +36,7 @@ def create_graph():
     
     # Add Nodes
     workflow.add_node("fetch", fetch_lead_node)
+    workflow.add_node("research", research_node) # Added Node
     workflow.add_node("generate", generate_draft_node)
     workflow.add_node("review", human_review_node)
     workflow.add_node("refine", refine_draft_node)
@@ -48,12 +50,13 @@ def create_graph():
         "fetch",
         check_email_count,
         {
-            "continue": "generate",
+            "continue": "research",  # Changed from generate to research
             "skip": "update",
             "end": END
         }
     )
     
+    workflow.add_edge("research", "generate") # Added Edge
     workflow.add_edge("generate", "review")
     workflow.add_edge("refine", "review")
     

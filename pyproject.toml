@@ -14,6 +14,7 @@ dependencies = [
     "google-auth-httplib2",
     "redis",
     "python-dotenv",
+    "markdown>=3.10.1",
 ]
 
 [build-system]

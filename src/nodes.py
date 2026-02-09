@@ -26,6 +26,11 @@ model_flash = ChatGoogleGenerativeAI(
     model="gemini-3-flash-preview",
     google_api_key=GOOGLE_API_KEY
 )
+model_research = ChatGoogleGenerativeAI(
+    model="gemini-3-flash-preview",
+    google_api_key=GOOGLE_API_KEY,
+    google_search_retrieval=True
+)
 
 def fetch_lead_node(state: AgentState) -> Dict[str, Any]:
     """Fetches the next lead from Google Sheets."""
@@ -39,68 +44,99 @@ def fetch_lead_node(state: AgentState) -> Dict[str, Any]:
     return {
         **lead,
         "resume_content": load_resume(),
+        "search_summary": "Pending Research...",
+        "company_domain": "Tech",
         "iteration_count": 0
     }
+
+def research_node(state: AgentState) -> Dict[str, Any]:
+    """Performs Google Search to gather context on the company and recipient."""
+    print(f"[DEBUG] Researching {state['company_name']}...")
+    
+    prompt = f"""
+    Research the following target for a cold email:
+    - Company: {state['company_name']}
+    - Recipient: {state['recipient_name']} ({state['position']})
+
+    1. What is the company's core technical domain? (e.g. Fintech, EdTech, AI Infrastructure, SaaS)
+    2. Find 1-2 specific, recent technical initiatives, blog posts, or news about them.
+    3. If the recipient has a public profile (LinkedIn/Twitter/GitHub), find 1 relevant professional detail.
+
+    Output a JSON object with keys:
+    - "search_summary": A concise paragraph summarizing the key findings to use as an email hook.
+    - "company_domain": The specific technical domain (e.g. "Fintech").
+    """
+    
+    try:
+        response = model_research.invoke(prompt)
+        # Simple parsing since we didn't force JSON mode on the model itself yet, 
+        # but Gemini usually follows instructions well. 
+        # For robustness, we'll just treat the whole content as the summary for now 
+        # and extract the domain heuristically if needed, or just ask for text.
+        
+        # Let's refine the prompt to just ask for the text to avoid JSON parsing issues in this quick setup.
+        # We can split the domain and summary via a delimiter.
+        return {
+            "search_summary": response.content,
+            "company_domain": "Tech" # Placeholder until we parse it better or rely on the summary
+        }
+    except Exception as e:
+        print(f"[DEBUG] Research failed: {e}")
+        return {
+            "search_summary": f"Could not research {state['company_name']}.",
+            "company_domain": "Tech"
+        }
 
 def generate_draft_node(state: AgentState) -> Dict[str, Any]:
     """Generates the initial email draft using Gemini 1.5 Pro with Structured Output."""
     print(f"[DEBUG] Generating draft for {state['recipient_name']}...")
     
-    # System Prompt Template
-    system_prompt = f"""You are a direct, systems-focused engineering applicant. Write a high-impact cold email for an internship.
+    # System Prompt
+    system_prompt = f"""
+You are a direct, systems-focused engineering applicant (IIT Kharagpur). 
+Your goal is to draft a high-impact cold email for an internship that sounds like it was written by a busy, capable developer—not a desperate student or an AI.
 
-### STRICT STYLE GUIDE (Mimic the Reference PDF)
-1.  **Structure:** Hook -> Credibility (15k users) -> Technical Deep Dive (3 Bullets) -> The Ask.
-2.  **Formatting:** Use bolding exactly as shown in the template (e.g., **Concept:**).
-3.  **Tone:** Professional, architectural, and grounded. No "fluff" or generic praise.
-4.  **Metrics:** Always mention "15,000+ active students" and "GitHub: **@indenigrate**".
+### CORE OBJECTIVE
+Use the provided **Research Context** and **Resume Context** to draft a unique, hyper-personalized email. Do not use a pre-set template. Write naturally, but strictly adhere to the logic flow below.
 
-### EMAIL TEMPLATE
-Subject: [Value Proposition] (Engineering Intern, IIT KGP)
+### LOGIC FLOW (The "Skeleton" of the email)
+1.  **The Greeting & Hook:** You MUST start exactly with "Hi {state['recipient_name']}," followed by a specific observation about {state['company_name']}'s work based on the Research Context. 
+    *Example style:* "Hi Anirudh, I’ve been following MediaMint’s work in scaling digital operations and workflow efficiency."
+2.  **The Credibility:** Transition immediately to your "Production Experience." You MUST mention that you manage campus platforms for **15,000+ active students** at IIT Kharagpur. This proves you handle scale.
+3.  **The Technical Deep Dive (The Core):**
+    - Explain your specific work on **Agentic AI / LangGraph** and **Systems**.
+    - Use 3 concise bullet points.
+    - **Adapt these bullets** to the company's domain:
+        - *For Fintech:* Frame your "Middleware" work as safety/validation and "Redis" as transaction reliability.
+        - *For AI:* Frame your "Cyclic Graph" work as complex reasoning and non-linear workflows.
+        - *For Ops/Infra:* Frame your "Arch Linux/Self-hosting" as systems mastery.
+    - **Mandatory:** You must mention "GitHub: **@indenigrate**" in this section.
+4.  **The Double Ask:**
+    - First, ask for an internship opportunity.
+    - Second, ask for advice: "Even if you aren't hiring, what should a systems-focused student do to stand out?"
 
-Hi {state['recipient_name']},
+### STYLE GUARDRAILS (Strictly Enforced)
+1.  **NO FLUFF:** Banned words: "thrilled," "seamless," "tapestry," "delve," "cutting-edge," "esteemed," "passionate," "I hope this email finds you well."
+2.  **NO GENERIC PRAISE:** Never say "I love your company." Say "Your implementation of X is solid."
+3.  **TONE:** Professional, architectural, flat. Write like a peer, not a fanboy.
+4.  **FORMAT:** 
+    - Use **bolding** for key technical terms (e.g., **Redis**, **LangGraph**).
+    - Do NOT include a sign-off or signature (e.g., "Best, Devansh"). Stop after the question.
 
-[Sentence 1: Research Hook. "I’ve been following {state['company_name']}’s work on [Specific Domain/Tech]..."]
-
-I am writing to you because I build software that automates complex processes. As the **Technology Coordinator at IIT Kharagpur**, I manage campus platforms for **15,000+ students**. This role has taught me that true efficiency comes from reliability, not just features.
-
-Technically, I am focused on **[Mention: Agentic AI / Stateful Systems / Reliability]**. I recently engineered a **[Mention: stateful system / LangGraph agent]** (GitHub: **@indenigrate**) designed to handle [Specific Challenge relevant to company]. Unlike standard chatbots, this agent:
-
-* **Maintains State:** Uses **Redis** to persist context across long, multi-stage sessions [or relevant backend skill].
-* **Enforces Logic:** I built **custom middleware** to ensure the agent adheres to strict business rules and validation steps.
-* **Handles Cycles:** It uses a cyclic graph architecture to loop through tasks autonomously [or relevant architectural skill].
-
-I believe this experience in building **[Summary of skills]** aligns perfectly with {state['company_name']}’s engineering goals.
-
-I am writing to inquire about internship opportunities with your team. Even if you aren't hiring, I would genuinely value your advice: what would you suggest a systems-focused student do to stand out in this competitive field?
-
-[STOP HERE - DO NOT ADD A SIGNATURE]
-
-### CRITICAL INSTRUCTIONS
-1.  **NO FLUFF:** Banned words: "thrilled," "seamless," "tapestry," "delve," "cutting-edge."
-2.  **ADAPT THE BULLETS:** The bullet points MUST explain your specific technical work (LangGraph, Redis, Middleware, Arch Linux) but phrased in a way that solves *their* problem.
-    * *If Fintech:* Emphasize **Logic/Middleware** (safety).
-    * *If AI:* Emphasize **Cycles/Graph** (reasoning).
-    * *If Ops:* Emphasize **State/Redis** (reliability).
-3.  **SUBJECT LINE:** Must be specific. E.g., "Automating complex ops with AI" or "Stateful Systems & Reliability".
-4.  **NO SIGNATURE:** Do NOT include any signature or sign-off (e.g., "Best," "Sincerely") or your name at the end. The email should end with the "The Ask" sentence.
+### INPUT DATA
+- **Target:** {state['recipient_name']} at {state['company_name']}
+- **Research Context (Stakeholder Info):** {state['search_summary']}
+- **Resume Context:** {state['resume_content']}
 """
 
     # User Prompt
     user_prompt = f"""
-    ### INPUT DATA
-    - **Target Company:** {state['company_name']}
-    - **Target Recipient:** {state['recipient_name']} ({state['position']})
-    - **Candidate Resume/Context:**
-    {state['resume_content']}
+    Draft the email subject and body based on the system instructions.
 
-    Generate the email subject and body based on the above rules.
-    Subject Line should be punchy (3-5 words).
-    
-    IMPORTANT FORMATTING:
-    - Do NOT insert line breaks (newlines) within sentences. 
-    - Only use newlines for paragraph breaks.
-    - The body text should flow naturally.
+    REQUIREMENTS:
+    1. **Subject Line:** Must be punchy, under 5 words, and relevant (e.g., "Stateful Systems & Reliability" or "Automating Ops with AI").
+    2. **Body:** Natural flow, no line breaks within sentences.
+    3. **Differentiation:** Based on the research, this company focuses on: {state['company_domain']} (e.g. Fintech/AI/SaaS). Adapt the technical bullet points to solve THEIR problems.
     """
     
     # Bind structured output

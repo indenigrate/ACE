@@ -15,6 +15,8 @@ class AgentState(TypedDict):
     
     # Context Data
     resume_content: str         # Loaded from resume.md
+    search_summary: str         # Research Context from Google Search
+    company_domain: str         # e.g. Fintech, AI, SaaS
     
     # Email Content
     email_subject: str
