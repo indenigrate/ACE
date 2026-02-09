@@ -22,6 +22,9 @@ def check_email_count(state: AgentState):
 
 def human_review_router(state: AgentState):
     """Router for human feedback."""
+    if state.get("mode") == "auto_draft":
+        return "send"
+        
     status = state.get("status")
     if status == "approved":
         return "send"
@@ -31,7 +34,7 @@ def human_review_router(state: AgentState):
         return "refine"
     return "review"
 
-def create_graph():
+def create_graph(autonomous: bool = False):
     workflow = StateGraph(AgentState)
     
     # Add Nodes
@@ -77,7 +80,9 @@ def create_graph():
     # Checkpointer for persistence
     memory = MemorySaver()
     
+    interrupts = [] if autonomous else ["review"]
+    
     return workflow.compile(
         checkpointer=memory,
-        interrupt_before=["review"] 
+        interrupt_before=interrupts
     )

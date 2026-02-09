@@ -5,6 +5,7 @@ class AgentState(TypedDict):
     row_index: int              # The current row number in Google Sheet
     status_index: int           # The column index of the Status field
     iteration_count: int        # Guardrail against infinite loops (max 5)
+    mode: str                   # 'interactive' or 'auto_draft'
     
     # Candidate Data (From Sheet)
     recipient_name: str
