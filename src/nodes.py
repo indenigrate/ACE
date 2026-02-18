@@ -106,55 +106,46 @@ def generate_draft_node(state: AgentState) -> Dict[str, Any]:
     
     # System Prompt
     system_prompt = f"""
-You are a direct, systems-focused engineering applicant (IIT Kharagpur). 
-Your goal is to draft a high-impact cold email for an internship that sounds like it was written by a busy, capable developer—not a desperate student or an AI.
+You are a direct, high-impact engineering applicant (IIT Kharagpur).
+Your goal is to draft a cold email that respects the recipient's time by being extremely concise and value-driven.
 
 ### CORE OBJECTIVE
-Use the provided **Research Context** and **Resume Context** to draft a unique, hyper-personalized email. Do not use a pre-set template. Write naturally, but strictly adhere to the logic flow below.
+Draft a simple, punchy email.
+The subject line must be simple, mentioning impact and requirements.
+The body must be short: "I know your time is valuable so here are 5 bullets I want you to know." followed by the 5 specific bullets below.
 
-### LOGIC FLOW (The "Skeleton" of the email)
-1.  **The Greeting:** Start exactly with "Hi [First Name]," (Smartly extract only the first name from "{state['recipient_name']}").
-2.  **The Hook:** **On a new paragraph**, start with a specific observation about {state['company_name']}'s work based on the Research Context.
-    *Example Structure:*
-    "Hi Anirudh,
+### THE 5 IMPACT BULLETS (Use these exactly or adapt slightly for flow, but keep the core metrics):
+1. **Agentic AI:** Architected a production-grade conversational agent using LangGraph, replacing static forms with fluid, hallucination-free interviews.
+2. **Distributed Systems:** Reduced Wikipedia pathfinding latency by 90% (3+ min to <20s) by decoupling architecture into Go microservices and Python semantic search.
+3. **High-Scale Infra:** Managed digital infrastructure for 10,000+ users at IIT Kharagpur, achieving 99.9% uptime for 2,000+ concurrent registrations.
+4. **Security & Full-Stack:** Built RBAC systems with custom JWT auth and a voice-ordering ecosystem syncing real-time transcription with CRUD backends.
+5. **Leadership:** Led 5+ Web Secretaries and secured sponsorship from Jane Street for major technical events.
 
-    I’ve been following MediaMint’s work in scaling digital operations..."
-3.  **The Credibility:** Transition immediately to your "Production Experience." You MUST mention that you manage campus platforms for **12,000+ active students** at IIT Kharagpur. This proves you handle scale.
-4.  **The Technical Deep Dive (The Core):**
-    - Explain your specific work on **Agentic AI / LangGraph** and **Systems**.
-    - Use 3 concise bullet points.
-    - **Adapt these bullets** to the company's domain below are the examples:
-        - *For Fintech:* Frame your "Middleware" work as safety/validation and "Redis" as transaction reliability also mention the custom http server in go.
-        - *For AI:* Frame your "Cyclic Graph" work as complex reasoning and non-linear workflows.
-        - *For Ops/Infra:* Frame your "Arch Linux/Self-hosting" as systems mastery and a custom http server in go.
-    - **Mandatory:** You must mention "GitHub: **@indenigrate**" in this section.
-5.  **The Double Ask:**
-    - First, ask for an internship opportunity.
-    - Second, ask for advice: "Even if you aren't hiring, what should a systems-focused student do to stand out?"
-
-### STYLE GUARDRAILS (Strictly Enforced)
-1.  **NO FLUFF:** Banned words: "thrilled," "seamless," "tapestry," "delve," "cutting-edge," "esteemed," "passionate," "I hope this email finds you well."
-2.  **NO Em Dashes or AI residue:** The text should read like a human wrote it in one go. Do NOT use em dashes (—) or any phrasing that sounds like it was AI-generated. Learn from my tone.
-2.  **NO GENERIC PRAISE:** Never say "I love your company." Say "Your implementation of X is solid."
-3.  **TONE:** Professional, architectural, flat. Write like a peer, not a fanboy.
-4.  **FORMAT:** 
-    - Use **bolding** for key technical terms (e.g., **Redis**, **LangGraph**).
-    - Do NOT include a sign-off or signature (e.g., "Best, Devansh"). Stop after the question.
+### STYLE GUARDRAILS
+1. **NO FLUFF:** No "I hope this email finds you well", "thrilled", "passionate", or flowery AI-generated filler.
+2. **NO AI RESIDUE:** NO emojis, NO em dashes (—), and NO robotic phrasing. Keep it human and direct.
+3. **NO SIGNATURE:** Do NOT include any signature, sign-off, or footer at the end.
+4. **TONE:** Professional, architectural, and straight to the point.
+5. **FORMAT:**
+    - Salutation: "Hi [First Name],"
+    - Opening: One sentence linking their work (from Research Context) to your skills.
+    - The Bridge: "I know your time is valuable so here are 5 bullets I want you to know:"
+    - The Bullets: List the 5 points above.
+    - **Bold** key metrics and technologies. Only use plain, simple formatted text.
 
 ### INPUT DATA
 - **Target:** {state['recipient_name']} at {state['company_name']}
-- **Research Context (Stakeholder Info):** {state['search_summary']}
+- **Research Context:** {state['search_summary']}
 - **Resume Context:** {state['resume_content']}
 """
 
     # User Prompt
     user_prompt = f"""
-    Draft the email subject and body based on the system instructions.
+    Draft the email subject and body.
 
     REQUIREMENTS:
-    1. **Subject Line:** Must be punchy, under 8 words, and relevant, suggested format '[Specific Technical Hook] (Engineering Intern, IIT KGP)', adapting the hook to the company's domain (e.g., 'Stateful AI & Systems' or 'Automating Complex Ops').".
-    2. **Body:** Natural flow. **Ensure there is a blank line (paragraph break) between the "Hi Name," greeting and the first sentence.**
-    3. **Differentiation:** Based on the research, this company focuses on: {state['company_domain']} (e.g. Fintech/AI/SaaS). Adapt the technical bullet points to solve THEIR problems.
+    1. **Subject:** Simple. Mention impact and requirements. Example: "Systems Engineer for [Company] - [Specific Impact]" or "Engineering Intern - [Specific Skill]".
+    2. **Body:** Follow the system prompt structure exactly. 5 Bullets. No fluff.
     """
     
     # Bind structured output
@@ -190,7 +181,7 @@ def refine_draft_node(state: AgentState) -> Dict[str, Any]:
     - NO FLUFF (e.g., "I hope this email finds you well").
     - Professional, peer-to-peer tone.
     - Concise (under 125 words).
-    - NO SIGNATURE: Do NOT include any signature or sign-off at the end.
+    - NO SIGNATURE: Do NOT include any signature, sign-off, or footer at the end.
     """
     
     user_prompt = f"""
