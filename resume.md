@@ -28,24 +28,9 @@ I architected a production-grade **Conversational Form Agent** designed to repla
 My approach to engineering is "systems-first." I prioritize memory safety and concurrency.
 
 * **WikiHunt-Bot (The Pathfinding Service):**
-* **The Challenge:** Calculating the shortest path between two Wikipedia articles involves traversing a graph of over 6 million nodes.
-* **The Solution:** I decoupled the architecture into microservices. I built the traversal engine in **Go** to leverage goroutines for speed, while the semantic intelligence lived in a **Python** service using **Sentence-BERT**.
-
-
-* 
-**The Impact:** By implementing intelligent batching and semantic heuristics, I reduced pathfinding latency from **3+ minutes to under 20 seconds** (a 90% reduction) and cut API costs by 50%.
-
-
-
-
-* **Custom HTTP Server (`http_server`):**
-* Rather than relying solely on frameworks, I built a server from scratch to deeply understand the TCP/IP handshake, socket management, and how raw bytes are parsed into HTTP protocols.
-
-
-* **ContractParse:**
-* I developed an intelligent parser combining NLP and Regex to ingest unstructured legal contracts and output queryable, structured data.
-
-
+* **The Challenge:** Calculating the shortest path between Wikipedia articles requires efficient graph traversal and semantic understanding of content.
+* **The Solution:** I decoupled the architecture into microservices. I built the traversal engine in **Go** to leverage goroutines for concurrent processing, while the semantic intelligence was handled by a **Python** service using **Sentence-BERT**.
+* **The Impact:** By implementing intelligent batching and semantic heuristics, I reduced pathfinding latency for the **WikiHunt-Bot** from **3+ minutes to under 20 seconds** (a 90% reduction) and cut API costs by 50%.
 
 ---
 
@@ -53,29 +38,11 @@ My approach to engineering is "systems-first." I prioritize memory safety and co
 
 As the **Technology Coordinator** for the Technology Students' Gymkhana, I don't just write code; I manage the digital backbone of the IIT Kharagpur campus.
 
-* **ApnaInsti & TSG Induction Portal:**
-* I lead the maintenance and development of "ApnaInsti," the campus super-app.
-
-
-* For the Induction Portal, I managed the registration of **2,000+ students** concurrently. By optimizing the deployment (likely via Docker/Nginx), I achieved **99.9% uptime** during the peak registration traffic spike.
-
-
-* 
-**Security:** I implemented **Role-Based Access Control (RBAC)** utilizing custom **JWT** (JSON Web Token) authentication to ensure data sovereignty between students and administration.
-
-
-
-
-* **Automated Library System:**
-* I directed the development of an automated check-in system that reduced manual processing time for library staff by **90%**.
-
-
-
-
-* **Restro Voice & Menu Management:**
-* I built a dual-repository ecosystem (`restro_voice` and `menu_management`) that enables voice-first ordering for restaurants, syncing real-time voice transcription with a CRUD inventory backend.
-
-
+* **ApnaInsti (Campus Super-App):**
+* I lead the development and maintenance of **ApnaInsti**, the primary digital gateway for 10,000+ students. I oversee the integration of institute-wide services and ensure the app remains the central hub for campus life.
+* **TSG Induction Portal:**
+* I managed the registration of **2,000+ students** concurrently for the induction process. By optimizing the deployment via Docker and Nginx, I ensured system stability and high availability during peak registration traffic.
+* **Security:** I implemented security protocols and authentication systems to ensure data sovereignty between students and administration.
 
 ---
 
@@ -85,11 +52,7 @@ My role extends beyond the terminal; I define technical strategy and lead teams 
 
 * **Executive Head @ Developers' Society (DevSoc):**
 * I revitalized the society by restructuring the recruitment process and internal workflows.
-
-
-* **Visionary Events:** I organized the **"Getting Internships using AI Agents"** session featuring **Gaurav Sen** (Founder, InterviewReady). I successfully secured sponsorship from **Jane Street**, bridging the gap between student developers and top-tier quantitative trading firms.
-
-
+* **Visionary Events:** I organized technical sessions featuring industry leaders like **Gaurav Sen** (Founder, InterviewReady) to bridge the gap between student developers and top-tier engineering firms.
 * **Team Management:**
 * I lead a team of **5+ Web Secretaries**, overseeing code reviews, architectural decisions, and the deployment lifecycle for institute-wide technology goals.
 
