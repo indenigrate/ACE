@@ -18,6 +18,10 @@ def clean_text_plain(text: str) -> str:
     Sanitizes plain text: merges wrapped lines but keeps paragraphs and lists preserved.
     """
     if not text: return ""
+    
+    # Normalize bullet types to standard markdown hyphens
+    text = re.sub(r"^[•\*\-\+]\s+", "- ", text, flags=re.MULTILINE)
+    
     lines = text.split('\n')
     output = []
     buffer = []
@@ -32,7 +36,7 @@ def clean_text_plain(text: str) -> str:
         if not line:
             flush()
             output.append("") # Preserve paragraph break
-        elif line.startswith('* '):
+        elif line.startswith('- '):
             flush()
             output.append(line)
         else:
@@ -45,6 +49,12 @@ def markdown_to_html(text: str) -> str:
     Converts Markdown (bold, bullets) to HTML using the python-markdown library.
     """
     if not text: return ""
+    
+    # 1. Normalize bullet types to standard markdown hyphens
+    text = re.sub(r"^[•\*\-\+]\s+", "- ", text, flags=re.MULTILINE)
+    
+    # 2. Ensure a blank line before lists so Markdown parses them correctly
+    text = re.sub(r"([^\n])\n(- \s*)", r"\1\n\n\2", text)
     
     # Convert Markdown to HTML
     # We use 'extra' extension if needed, but standard markdown covers basic usage.
