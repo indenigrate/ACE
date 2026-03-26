@@ -6,76 +6,81 @@ I am a product-focused engineer who operates at the intersection of **distribute
 
 ---
 
-### **1. Magnum Opus: The "Agentic" Conversational Engine**
+### **0. Education**
+*   **Indian Institute of Technology Kharagpur** | B.Tech in Chemical Engineering | **CGPA: 8.62** | 2023 – 2028
+*   **Billabong High International School** | H.S.C: **95.6%** (2023) | S.S.C: **97.2%** (2021)
 
+---
+
+### **1. Magnum Opus: Agentic AI Systems**
+
+#### **ACE (Agentic Cold Emailer)**
+*Core Tech: Python, LangGraph, Vertex AI, Gmail API, Google Sheets*
+*   Engineered an **autonomous agentic workflow** to streamline internship outreach, reducing the time required per personalized email from **20 minutes to just 20 seconds** by parallelizing company research and draft generation.
+*   Implemented a **Human-in-the-Loop** architecture enabling real-time user review of AI drafts before dispatching, while automatically synchronizing status updates with Google Sheets.
+
+#### **Conversational Survey Agent**
 *Core Tech: LangGraph, Python, Google Gemini, Redis, Firestore*
-
-I architected a production-grade **Conversational Form Agent** designed to replace static HTML forms with a fluid, human-like interview process. This was not a simple wrapper around an LLM; it was a strictly typed, event-driven state machine.
-
-* **Finite State Machine (FSM) Architecture:** I utilized `LangGraph` to enforce strict state transitions (`ONGOING`  `CLARIFYING`  `FINISHED`). This ensured the bot never hallucinated its progress and adhered to a rigorous JSON schema for data collection.
-* **"The Weave" Conversation Strategy:** I engineered a specific prompt strategy called "The Weave," which forced the model to perform three distinct actions in every turn: **Validate** the user's emotion, **Bridge** the topic, and **Ask** the next question covertly.
-* **Custom Middleware Layer:** To ensure reliability, I wrote custom middleware directly into the graph:
-* **`FrustrationGuardMiddleware`:** I implemented a safety valve that tracks `consecutive_flags`. If a user gets stuck or frustrated (fails to answer 3 times), the system automatically overrides the LLM to skip the question, preventing infinite loops.
-* **`bootstrap_session_middleware`:** I created logic to intercept the very first action, forcing the `load_survey` tool to execute before the LLM ever generates a token, ensuring the session state is always initialized correctly.
-
-
-* **Async Persistence:** I wrote a custom `AsyncFirestoreSaver` to handle checkpointing. This allowed the system to be non-blocking and capable of handling high concurrency by writing to Google Firestore asynchronously, rather than relying on synchronous writes that would bottleneck the chat flow.
+*   **Finite State Machine (FSM) Architecture:** Utilized `LangGraph` to enforce strict state transitions, ensuring the bot adheres to a rigorous JSON schema for data collection.
+*   **"The Weave" Conversation Strategy:** Engineered a prompt strategy that forces the model to **Validate** emotion, **Bridge** topics, and **Ask** questions covertly in every turn.
+*   **Custom Middleware Layer:** 
+    *   **`FrustrationGuardMiddleware`:** Tracks user sentiment to prevent infinite loops by overriding the LLM if a user becomes stuck.
+    *   **`bootstrap_session_middleware`:** Ensures session state is initialized correctly before the LLM generates any tokens.
+*   **Async Persistence:** Developed a custom `AsyncFirestoreSaver` for non-blocking checkpointing, enabling high concurrency.
 
 ---
 
 ### **2. Distributed Systems & Hard Engineering**
 
-My approach to engineering is "systems-first." I prioritize memory safety and concurrency.
+#### **WikiHunt-Bot (The Pathfinding Service)**
+*   **The Challenge:** Calculating the shortest path between Wikipedia articles via concurrent graph traversal.
+*   **The Solution:** Decoupled architecture into **Go** (for high-concurrency traversal via Goroutines) and **Python** (for semantic intelligence via **Sentence-BERT**).
+*   **The Impact:** Slashed average pathfinding latency by over **90%** (from 3+ minutes to <20 seconds) and reduced operational costs by 50% through intelligent batching.
 
-* **WikiHunt-Bot (The Pathfinding Service):**
-* **The Challenge:** Calculating the shortest path between Wikipedia articles requires efficient graph traversal and semantic understanding of content.
-* **The Solution:** I decoupled the architecture into microservices. I built the traversal engine in **Go** to leverage goroutines for concurrent processing, while the semantic intelligence was handled by a **Python** service using **Sentence-BERT**.
-* **The Impact:** By implementing intelligent batching and semantic heuristics, I reduced pathfinding latency for the **WikiHunt-Bot** from **3+ minutes to under 20 seconds** (a 90% reduction) and cut API costs by 50%.
+#### **HTTP/1.1 Server (From Scratch)**
+*Core Tech: Go, TCP/IP, Concurrency*
+*   Built a high-performance server by interacting directly with **raw TCP sockets**, manually parsing byte streams to eliminate standard library overhead.
+*   Implemented **Gzip compression**, **TCP Keep-Alive**, and **Goroutine-based concurrency** for low-latency client handling.
 
 ---
 
 ### **3. Institutional Infrastructure (Scale: 10,000+ Users)**
 
-As the **Technology Coordinator** for the Technology Students' Gymkhana, I don't just write code; I manage the digital backbone of the IIT Kharagpur campus.
+#### **Technology Coordinator @ TSG, IIT Kharagpur**
+*   **Induction Portal:** Managed the full-stack lifecycle for a platform serving **2,000+ students**, maintaining **99.9% uptime** during peak registration.
+*   **Digital Transformation:** Directed the development of an automated library check-in system that **reduced manual processing time by 90%**.
+*   **Team Leadership:** Manage a team of **5+ Web Secretaries**, coordinating technical proposals for institute-wide technology goals.
 
-* **ApnaInsti (Campus Super-App):**
-* I lead the development and maintenance of **ApnaInsti**, the primary digital gateway for 10,000+ students. I oversee the integration of institute-wide services and ensure the app remains the central hub for campus life.
-* **TSG Induction Portal:**
-* I managed the registration of **2,000+ students** concurrently for the induction process. By optimizing the deployment via Docker and Nginx, I ensured system stability and high availability during peak registration traffic.
-* **Security:** I implemented security protocols and authentication systems to ensure data sovereignty between students and administration.
-
----
-
-### **4. Strategic Leadership & Vision**
-
-My role extends beyond the terminal; I define technical strategy and lead teams to execute it.
-
-* **Executive Head @ Developers' Society (DevSoc):**
-* I revitalized the society by restructuring the recruitment process and internal workflows.
-* **Visionary Events:** I organized technical sessions featuring industry leaders like **Gaurav Sen** (Founder, InterviewReady) to bridge the gap between student developers and top-tier engineering firms.
-* **Team Management:**
-* I lead a team of **5+ Web Secretaries**, overseeing code reviews, architectural decisions, and the deployment lifecycle for institute-wide technology goals.
-
-
-
-
+#### **Executive Head @ Developers' Society (DevSoc)**
+*   **Agentic AI Workshop:** Orchestrated a flagship workshop training **350+ students** in building autonomous AI systems.
+*   **App Restoration:** Led the revival of the **'ApnaInsti'** campus application, resolving legacy bugs and restoring full functionality for the student body.
 
 ---
 
-### **5. My Technical Arsenal**
+### **4. Foundational Projects (Commented Archives)**
+*   **Attendance Monitor (Go, PostgreSQL):** Architected a production-ready system with a secure JWT-based RESTful API and a normalized schema designed to scale to thousands of records.
+*   **Job Listing API (Go, Docker):** Orchestrated a microservices application using Docker Compose, slashing developer setup time by **95%**.
 
-I curate my stack for performance, control, and immutability.
+---
+
+### **5. Technical Arsenal**
 
 | Domain | Primary Tools & Methodology |
 | --- | --- |
-| **Agentic AI** | **LangGraph, LangChain.** I build state-aware agents with custom middleware and persistence layers. |
-| **Backend** | **Go (Gin), Python (FastAPI).** I use Go for high-throughput microservices and Python for AI/ML integration. |
-| **Database** | **PostgreSQL, Firestore, Redis.** I design normalized schemas (3NF) for integrity and use NoSQL for session state. |
-| **DevOps** | **Docker, Nginx, AWS.** I containerize environments to eliminate "works on my machine" issues and manage reverse proxies for production load balancing. |
-| **OS Environment** | **Arch Linux (Hyprland).** I am a power user who optimizes my workflow via the terminal and shell scripting. |
+| **Agentic AI** | **LangGraph, LangChain, Vertex AI.** State-aware agents with custom middleware. |
+| **Backend** | **Go (Gin, pgx), Python (FastAPI).** High-throughput microservices and AI integration. |
+| **Database** | **PostgreSQL, Redis, Firestore, MongoDB.** Normalized schemas and NoSQL session state. |
+| **DevOps** | **Docker, AWS, GCP, Nginx, Linux (Arch).** Containerization and reverse proxy management. |
+| **Languages** | **Go, Python, C/C++, SQL, Bash, JavaScript.** |
+
+---
+
+### **6. Extra-Curricular Activities**
+*   **Leadership:** Vice-Captain for the Interhall Basketball Championship.
+*   **Arts:** Actor and Co-writer for Nukkad (Street Play) competitions.
+*   **Photography:** Personal project on Pexels with over **40,000 views**.
 
 ---
 
 ### **Summary**
-
-I am a **Product-Grade Engineer**. I have shipped code used by thousands of users, reduced operational costs through algorithmic optimization, and led technical teams to deliver critical campus infrastructure along with building end to end ai agents completely. I am ready to drop into a high-velocity engineering team and own the entire lifecycle of a product—from the Linux kernel up to the React frontend.
+I am a **Product-Grade Engineer**. I have shipped code used by thousands of users, reduced operational costs through algorithmic optimization, and led technical teams to deliver critical campus infrastructure. I am ready to drop into a high-velocity engineering team and own the entire lifecycle of a product—from the Linux kernel up to the React frontend.

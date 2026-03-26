@@ -24,7 +24,7 @@ class ResearchResult(BaseModel):
 
 # Initialize Models using ChatGoogleGenerativeAI (Vertex AI mode enabled via env)
 model_pro = ChatGoogleGenerativeAI(
-    model="gemini-3-pro-preview",
+    model="gemini-3.1-pro-preview",
     google_api_key=GOOGLE_API_KEY
 )
 model_flash = ChatGoogleGenerativeAI(
