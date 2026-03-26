@@ -40,3 +40,4 @@ SCOPES = [
 
 # File Paths
 RESUME_PATH = ROOT_DIR / "resume.md"
+RESUME_PDF_PATH = ROOT_DIR / "resume.pdf"

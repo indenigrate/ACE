@@ -16,6 +16,7 @@ class AgentState(TypedDict):
     
     # Context Data
     resume_content: str         # Loaded from resume.md
+    resume_pdf_path: Optional[str]  # Path to resume PDF for attachment
     search_summary: str         # Research Context from Google Search
     company_domain: str         # e.g. Fintech, AI, SaaS
     

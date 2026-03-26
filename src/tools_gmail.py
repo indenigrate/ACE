@@ -1,6 +1,8 @@
 import base64
 import html
 import re
+import os
+import mimetypes
 import markdown
 from email.message import EmailMessage
 from email.policy import default
@@ -54,9 +56,9 @@ def markdown_to_html(text: str) -> str:
     
     return html_content
 
-def create_draft(to: str, subject: str, body: str):
+def create_draft(to: str, subject: str, body: str, attachment_path: str = None):
     """
-    Creates a GMAIL DRAFT (Multipart Text + HTML).
+    Creates a GMAIL DRAFT (Multipart Text + HTML), with an optional file attachment.
     """
     service = get_gmail_service()
     
@@ -104,8 +106,19 @@ def create_draft(to: str, subject: str, body: str):
     '''
     
     message.add_alternative(html_structure, subtype='html')
+
+    # 6. Attach resume PDF if provided
+    if attachment_path and os.path.isfile(attachment_path):
+        filename = os.path.basename(attachment_path)
+        ctype, encoding = mimetypes.guess_type(attachment_path)
+        if ctype is None:
+            ctype = 'application/octet-stream'
+        maintype, subtype = ctype.split('/', 1)
+        with open(attachment_path, 'rb') as f:
+            message.add_attachment(f.read(), maintype=maintype, subtype=subtype, filename=filename)
+        print(f"[LOG] Attached file: {filename}")
     
-    # 6. Encode
+    # 7. Encode
     user_policy = default.clone(max_line_length=None)
     
     encoded_message = base64.urlsafe_b64encode(
@@ -121,9 +134,9 @@ def create_draft(to: str, subject: str, body: str):
     draft = service.users().drafts().create(userId="me", body=create_message).execute()
     return draft
 
-def send_email(to: str, subject: str, body: str):
+def send_email(to: str, subject: str, body: str, attachment_path: str = None):
     """
-    Sends a multipart email (Text + HTML).
+    Sends a multipart email (Text + HTML), with an optional file attachment.
     This forces Gmail to render full-width text while passing spam filters.
     """
     service = get_gmail_service()
@@ -172,8 +185,19 @@ def send_email(to: str, subject: str, body: str):
     '''
     
     message.add_alternative(html_structure, subtype='html')
+
+    # 6. Attach resume PDF if provided
+    if attachment_path and os.path.isfile(attachment_path):
+        filename = os.path.basename(attachment_path)
+        ctype, encoding = mimetypes.guess_type(attachment_path)
+        if ctype is None:
+            ctype = 'application/octet-stream'
+        maintype, subtype = ctype.split('/', 1)
+        with open(attachment_path, 'rb') as f:
+            message.add_attachment(f.read(), maintype=maintype, subtype=subtype, filename=filename)
+        print(f"[LOG] Attached file: {filename}")
     
-    # 6. Encode and Send
+    # 7. Encode and Send
     user_policy = default.clone(max_line_length=None)
     
     encoded_message = base64.urlsafe_b64encode(

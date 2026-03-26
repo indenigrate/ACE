@@ -9,7 +9,7 @@ from src.tools_sheets import fetch_lead, update_lead_status
 from src.tools_gmail import send_email, create_draft
 from src.utils import load_resume
 from langchain_google_genai import ChatGoogleGenerativeAI
-from config.settings import GOOGLE_PROJECT_ID, GOOGLE_API_KEY
+from config.settings import GOOGLE_PROJECT_ID, GOOGLE_API_KEY, RESUME_PDF_PATH
 
 # Define Structured Output Schema
 class EmailDraft(BaseModel):
@@ -59,9 +59,17 @@ def fetch_lead_node(state: AgentState) -> Dict[str, Any]:
     resume_content = load_resume()
     # print(f"[LOG] Resume Content Loaded (Snippet): {resume_content[:100]}...")
 
+    # Check if resume PDF exists for attachment
+    resume_pdf_path = str(RESUME_PDF_PATH) if RESUME_PDF_PATH.is_file() else None
+    if resume_pdf_path:
+        print(f"[LOG] Resume PDF found: {resume_pdf_path}")
+    else:
+        print(f"[LOG] No resume PDF found at {RESUME_PDF_PATH}. Emails will be sent without attachment.")
+
     return {
         **lead,
         "resume_content": resume_content,
+        "resume_pdf_path": resume_pdf_path,
         "search_summary": "Pending Research...",
         "company_domain": "Tech",
         "iteration_count": 0,
@@ -110,9 +118,9 @@ You are a direct, high-impact engineering applicant (IIT Kharagpur).
 Your goal is to draft a cold email that respects the recipient's time by being extremely concise and value-driven.
 
 ### CORE OBJECTIVE
-Draft a simple, punchy email.
-The subject line must be simple, mentioning impact and requirements.
-The body must be short: "I know your time is valuable so here are 5 bullets I want you to know." followed by the 5 specific bullets below.
+Draft a punchy, value-first email. 
+The subject line should be minimal and focus on a specific technical value proposition and mention about internship seeking.
+The body must demonstrate a clear understanding of the recipient's work and offer 5 verifiable, data-backed impact points from your background.
 
 ### THE 5 IMPACT BULLETS (Use these exactly or adapt slightly for flow, but keep the core metrics):
 1. **Agentic AI:** Architected a production-grade conversational agent using LangGraph, replacing static forms with fluid, hallucination-free interviews.
@@ -144,7 +152,7 @@ The body must be short: "I know your time is valuable so here are 5 bullets I wa
     Draft the email subject and body.
 
     REQUIREMENTS:
-    1. **Subject:** Simple. Mention impact and requirements. Example: "Systems Engineer for [Company] - [Specific Impact]" or "Engineering Intern - [Specific Skill]".
+    1. **Subject:** Simple. Mention impact and requirements. Example: "Systems Engineer Intern for [Company] - [Specific Impact]" or "Engineering Intern - [Specific Skill]".
     2. **Body:** Follow the system prompt structure exactly. 5 Bullets. No fluff.
     """
     
@@ -226,6 +234,7 @@ def send_email_node(state: AgentState) -> Dict[str, Any]:
     to_field = ", ".join(recipients)
     
     mode = state.get('mode', 'interactive')
+    attachment_path = state.get('resume_pdf_path')
     
     if mode == 'auto_draft':
         print(f"[DEBUG] [Auto Mode] Creating draft for: {to_field}...")
@@ -233,7 +242,8 @@ def send_email_node(state: AgentState) -> Dict[str, Any]:
             create_draft(
                 to=to_field,
                 subject=state['email_subject'],
-                body=state['email_body']
+                body=state['email_body'],
+                attachment_path=attachment_path
             )
             print(f"[DEBUG] Draft created successfully.")
         except Exception as e:
@@ -246,7 +256,8 @@ def send_email_node(state: AgentState) -> Dict[str, Any]:
             send_email(
                 to=to_field,
                 subject=state['email_subject'],
-                body=state['email_body']
+                body=state['email_body'],
+                attachment_path=attachment_path
             )
             print(f"[DEBUG] Email sent successfully.")
         except Exception as e:
