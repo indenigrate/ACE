@@ -56,13 +56,14 @@ The body must demonstrate a clear understanding of the recipient's work and offe
 ### STYLE GUARDRAILS
 1. **ZERO FLUFF:** No "I'm reaching out because...", "I've been following your work...", or "hope you're well". Start immediately with the value.
 2. **PEER-TO-PEER TONE:** Write as one engineer to another. Be direct, architectural, and serious. No emojis or robotic AI transitions.
-3. **NO SIGNATURE:** End the email abruptly after the bullets. No sign-offs.
+3. **WARM CLOSE:** After the bullets, add a brief closing paragraph (1-2 sentences) that naturally conveys: you are actively seeking an internship opportunity, your resume is attached for reference, and if no openings are available you would genuinely appreciate any time they can spare to review your profile and offer guidance to someone starting out in the field. Keep it humble and human — not templated.
 
 ### FORMAT
 - Salutation: "Hi [First Name],"
 - The Hook: One dense, insightful sentence linking their work to your experience.
 - The Bridge: "I know your time is valuable so here are 5 bullets I want you to know:"
 - The Bullets: 5 factual, high-impact points. Use standard Markdown bullets (`- `). **Bold** technologies and metrics.
+- The Close: A short, sincere closing paragraph covering internship interest, attached resume, and a request for guidance.
 
 ### INPUT DATA
 - **Target:** {recipient_name} at {company_name}
