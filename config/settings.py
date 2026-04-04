@@ -1,11 +1,23 @@
 import os
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
+# ---------------------------------------------------------------------------
+# Logging Configuration
+# ---------------------------------------------------------------------------
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
+    format="[%(levelname)s] %(name)s: %(message)s",
+)
+
+# ---------------------------------------------------------------------------
 # Project Roots
+# ---------------------------------------------------------------------------
 ROOT_DIR = Path(__file__).parent.parent
 CONFIG_DIR = ROOT_DIR / "config"
 SRC_DIR = ROOT_DIR / "src"
@@ -22,12 +34,23 @@ GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID")
 GOOGLE_PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
+# ---------------------------------------------------------------------------
+# Environment Validation
+# ---------------------------------------------------------------------------
+_required_vars = {
+    "GOOGLE_API_KEY": GOOGLE_API_KEY,
+    "GOOGLE_SHEET_ID": GOOGLE_SHEET_ID,
+}
+for _name, _value in _required_vars.items():
+    if not _value:
+        raise ValueError(
+            f"Required environment variable '{_name}' is not set. "
+            "Please add it to your .env file."
+        )
+
 # Enable Vertex AI with API Key mode
 os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "True")
 os.environ["GOOGLE_API_KEY"] = GOOGLE_API_KEY
-
-# Redis Config
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 
 # Scopes
 SCOPES = [
@@ -41,3 +64,9 @@ SCOPES = [
 # File Paths
 RESUME_PATH = ROOT_DIR / "resume.md"
 RESUME_PDF_PATH = ROOT_DIR / "resume.pdf"
+
+# Analytics
+ANALYTICS_FILE = ROOT_DIR / "analytics.json"
+
+# Iteration Guards
+MAX_REFINEMENT_ITERATIONS = 5

@@ -3,5 +3,7 @@ __pycache__/
 credentials.json
 .venv
 token.json
+config/token.json
 resume.md
 resume.pdf
+analytics.json

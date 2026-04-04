@@ -73,12 +73,12 @@ The body must demonstrate a clear understanding of the recipient's work and offe
 
 
 def get_generate_draft_user_prompt() -> str:
-    """User prompt for the initial email generation node."""
+    """User prompt for the initial email generation node (A/B variant aware)."""
     return """
-    Draft the email subject and body.
+    Draft the email body and exactly 3 subject line variants for A/B testing.
 
     REQUIREMENTS:
-    1. **Subject:** Simple. Mention impact and requirements. Example: "Systems Engineer Intern for [Company] - [Specific Impact]" or "Engineering Intern - [Specific Skill]".
+    1. **Subject Variants:** Generate exactly 3 distinct subject line variations. Each should be concise and highlight a different angle or value proposition. Examples: "Systems Engineer Intern for [Company] - [Specific Impact]", "Engineering Intern - [Specific Skill]", "[Metric] in [Domain] - Internship Inquiry".
     2. **Body:** Follow the system prompt structure exactly. 5 Bullets. No fluff.
     """
 

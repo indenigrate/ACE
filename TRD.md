@@ -180,17 +180,19 @@ The agent expects a sheet named `Internship_Leads` with these exact headers:
 ├── /config
 │   ├── credentials.json       # OAuth 2.0 Client ID (Download from GCP)
 │   ├── token.json             # Generated after first login
-│   └── settings.py            # Constants
+│   └── settings.py            # Constants, logging, env validation
 ├── /src
 │   ├── graph.py               # LangGraph definition
 │   ├── nodes.py               # Core logic for each node
-│   ├── tools_gmail.py         # Gmail API wrapper
-│   ├── tools_sheets.py        # GSpread wrapper
-│   ├── google_auth.py         # Auth helpers
+│   ├── prompts.py             # Centralized prompt definitions
+│   ├── analytics.py           # Event tracking & A/B testing analytics
+│   ├── tools_gmail.py         # Gmail API wrapper (send, draft, validate)
+│   ├── tools_sheets.py        # Google Sheets wrapper
+│   ├── google_auth.py         # Auth helpers (with caching)
 │   └── state.py               # TypedDict definition
 ├── resume.md                  # Your text-based resume
 ├── main.py                    # CLI Entry point
-├── Dockerfile                 # Redis setup
+├── docker-compose.yml         # Redis setup
 ├── pyproject.toml             # uv dependencies
 └── .env                       # API Keys
 ```

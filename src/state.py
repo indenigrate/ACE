@@ -24,6 +24,9 @@ class AgentState(TypedDict):
     email_subject: str
     email_body: str
     
+    # A/B Testing
+    subject_variants: Optional[List[str]]  # Multiple subject line variants
+    
     # Feedback Loop
     user_feedback: Optional[str] # Specific critique from CLI
     status: str                 # 'drafting', 'reviewing', 'approved', 'sent', 'skipped'
