@@ -8,6 +8,13 @@ from src.state import AgentState
 from src.tools_sheets import fetch_lead, update_lead_status
 from src.tools_gmail import send_email, create_draft
 from src.utils import load_resume
+from src.prompts import (
+    get_research_prompt,
+    get_generate_draft_system_prompt,
+    get_generate_draft_user_prompt,
+    get_refine_draft_system_prompt,
+    get_refine_draft_user_prompt,
+)
 from langchain_google_genai import ChatGoogleGenerativeAI
 from config.settings import GOOGLE_PROJECT_ID, GOOGLE_API_KEY, RESUME_PDF_PATH
 
@@ -80,15 +87,11 @@ def research_node(state: AgentState) -> Dict[str, Any]:
     """Performs Google Search to gather context on the company and recipient."""
     print(f"[LOG] Researching target: {state['company_name']}...")
     
-    prompt = f"""
-    Research the following target for a cold email:
-    - Company: {state['company_name']}
-    - Recipient: {state['recipient_name']} ({state['position']})
-
-    1. What is the company's core technical domain? (e.g. Fintech, EdTech, AI Infrastructure, SaaS)
-    2. Find 1-2 specific, recent technical initiatives, blog posts, or news about them.
-    3. If the recipient has a public profile (LinkedIn/Twitter/GitHub), find 1 relevant professional detail.
-    """
+    prompt = get_research_prompt(
+        company_name=state['company_name'],
+        recipient_name=state['recipient_name'],
+        position=state['position'],
+    )
     
     # Bind structured output
     structured_researcher = model_research.with_structured_output(ResearchResult)
@@ -112,48 +115,14 @@ def generate_draft_node(state: AgentState) -> Dict[str, Any]:
     """Generates the initial email draft using Gemini 1.5 Pro with Structured Output."""
     print(f"[DEBUG] Generating draft for {state['recipient_name']}...")
     
-    # System Prompt
-    system_prompt = f"""
-You are a direct, high-impact engineering applicant (IIT Kharagpur).
-Your goal is to draft a cold email that respects the recipient's time by being extremely concise and value-driven.
-
-### CORE OBJECTIVE
-Draft a punchy, value-first email. 
-The subject line should be minimal and focus on a specific technical value proposition and mention about internship seeking.
-The body must demonstrate a clear understanding of the recipient's work and offer 5 verifiable, data-backed impact points from your background.
-
-### THE 5 IMPACT BULLETS (Use these exactly or adapt slightly for flow, but keep the core metrics):
-1. **Agentic AI:** Architected a production-grade conversational agent using LangGraph, replacing static forms with fluid, hallucination-free interviews.
-2. **Distributed Systems:** Reduced Wikipedia pathfinding latency by 90% (3+ min to <20s) by decoupling architecture into Go microservices and Python semantic search.
-3. **High-Scale Infra:** Managed digital infrastructure for 10,000+ users at IIT Kharagpur, achieving 99.9% uptime for 2,000+ concurrent registrations.
-4. **Security & Full-Stack:** Built RBAC systems with custom JWT auth and a voice-ordering ecosystem syncing real-time transcription with CRUD backends.
-5. **Leadership:** Led 5+ Web Secretaries and secured sponsorship from Jane Street for major technical events.
-
-### STYLE GUARDRAILS
-1. **ZERO FLUFF:** No "I'm reaching out because...", "I've been following your work...", or "hope you're well". Start immediately with the value.
-2. **PEER-TO-PEER TONE:** Write as one engineer to another. Be direct, architectural, and serious. No emojis or robotic AI transitions.
-3. **NO SIGNATURE:** End the email abruptly after the bullets. No sign-offs.
-
-### FORMAT
-- Salutation: "Hi [First Name],"
-- The Hook: One dense, insightful sentence linking their work to your experience.
-- The Bridge: "I know your time is valuable so here are 5 bullets I want you to know:"
-- The Bullets: 5 factual, high-impact points. Use standard Markdown bullets (`- `). **Bold** technologies and metrics.
-
-### INPUT DATA
-- **Target:** {state['recipient_name']} at {state['company_name']}
-- **Research Context:** {state['search_summary']}
-- **Resume Context:** {state['resume_content']}
-"""
-
-    # User Prompt
-    user_prompt = f"""
-    Draft the email subject and body.
-
-    REQUIREMENTS:
-    1. **Subject:** Simple. Mention impact and requirements. Example: "Systems Engineer Intern for [Company] - [Specific Impact]" or "Engineering Intern - [Specific Skill]".
-    2. **Body:** Follow the system prompt structure exactly. 5 Bullets. No fluff.
-    """
+    # Prompts from centralized src/prompts.py
+    system_prompt = get_generate_draft_system_prompt(
+        recipient_name=state['recipient_name'],
+        company_name=state['company_name'],
+        search_summary=state['search_summary'],
+        resume_content=state['resume_content'],
+    )
+    user_prompt = get_generate_draft_user_prompt()
     
     # Bind structured output
     structured_llm = model_pro.with_structured_output(EmailDraft)
@@ -183,23 +152,13 @@ def refine_draft_node(state: AgentState) -> Dict[str, Any]:
     """Refines the email draft based on user feedback using Gemini 1.5 Flash."""
     print("[DEBUG] Refining draft...")
     
-    system_prompt = """You are an expert technical editor. 
-    Rewrite the email strictly based on the user's feedback while MAINTAINING the "Technical Copywriter" persona:
-    - NO FLUFF (e.g., "I hope this email finds you well").
-    - Professional, peer-to-peer tone.
-    - Concise (under 125 words).
-    - NO SIGNATURE: Do NOT include any signature, sign-off, or footer at the end.
-    """
-    
-    user_prompt = f"""
-    Feedback: "{state['user_feedback']}"
-    
-    Current Subject: {state['email_subject']}
-    Current Body:
-    {state['email_body']}
-    
-    Return the updated Subject and Body.
-    """
+    # Prompts from centralized src/prompts.py
+    system_prompt = get_refine_draft_system_prompt()
+    user_prompt = get_refine_draft_user_prompt(
+        user_feedback=state['user_feedback'],
+        email_subject=state['email_subject'],
+        email_body=state['email_body'],
+    )
     
     structured_llm = model_flash.with_structured_output(EmailDraft)
     
