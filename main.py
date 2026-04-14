@@ -1,4 +1,5 @@
 import sys
+import argparse
 import logging
 from rich.console import Console
 from rich.panel import Panel
@@ -64,21 +65,34 @@ def display_variants(state: AgentState) -> None:
 
 
 def main():
+    parser = argparse.ArgumentParser(description="ACE: Agentic Cold Emailer")
+    parser.add_argument("--follow-ups", type=int, choices=[1, 2], help="Run follow-up sequence (1 or 2)")
+    args = parser.parse_args()
+
     console.print(Panel("[bold green]ACE: Agentic Cold Emailer[/bold green]", expand=False))
 
-    # Mode Selection
-    console.print("\n[bold]Select Execution Mode:[/bold]")
-    console.print("1. [bold cyan]Interactive (HITL)[/bold cyan]: Review and approve each email before sending.")
-    console.print("2. [bold magenta]Automatic (Draft Mode)[/bold magenta]: Automatically create drafts for all leads to review later in Gmail.")
+    is_followup = args.follow_ups is not None
+    followup_num = args.follow_ups if is_followup else 0
 
-    mode_choice = Prompt.ask("Enter choice", choices=["1", "2"], default="1")
-
-    is_autonomous = (mode_choice == "2")
-    run_mode = "auto_draft" if is_autonomous else "interactive"
-
-    if is_autonomous:
-        console.print(f"\n[bold magenta]Starting in Automatic Draft Mode.[/bold magenta] All emails will be saved to 'Drafts'.")
+    if is_followup:
+        console.print(f"\n[bold yellow]FOLLOW-UP MODE: Stage {followup_num}[/bold yellow]")
+        run_mode = "auto_draft" # Follow-ups are usually bulk drafted
     else:
+        # Mode Selection
+        console.print("\n[bold]Select Execution Mode:[/bold]")
+        console.print("1. [bold cyan]Interactive (HITL)[/bold cyan]: Review and approve each email before sending.")
+        console.print("2. [bold magenta]Automatic (Draft Mode)[/bold magenta]: Automatically create drafts for all leads to review later in Gmail.")
+
+        mode_choice = Prompt.ask("Enter choice", choices=["1", "2"], default="1")
+
+        is_autonomous = (mode_choice == "2")
+        run_mode = "auto_draft" if is_autonomous else "interactive"
+
+    is_autonomous = (run_mode == "auto_draft")
+
+    if is_autonomous and not is_followup:
+        console.print(f"\n[bold magenta]Starting in Automatic Draft Mode.[/bold magenta] All emails will be saved to 'Drafts'.")
+    elif not is_followup:
         console.print(f"\n[bold cyan]Starting in Interactive Mode.[/bold cyan]")
 
     # Create Graph with conditional interrupt
@@ -95,9 +109,18 @@ def main():
 
         if not state.values or first_run:
             if not state.values:
-                graph.invoke({"mode": run_mode}, config)
+                initial_input = {
+                    "mode": run_mode,
+                    "is_followup_mode": is_followup,
+                    "followup_number": followup_num
+                }
+                graph.invoke(initial_input, config)
             else:
-                graph.update_state(config, {"mode": run_mode})
+                graph.update_state(config, {
+                    "mode": run_mode,
+                    "is_followup_mode": is_followup,
+                    "followup_number": followup_num
+                })
                 if first_run and is_autonomous:
                     graph.invoke(None, config)
             first_run = False

@@ -4,8 +4,16 @@ class AgentState(TypedDict):
     # Workflow Control
     row_index: int              # The current row number in Google Sheet
     status_index: int           # The column index of the Status field
+    thread_id_index: Optional[int]
+    f1_index: Optional[int]
+    f2_index: Optional[int]
     iteration_count: int        # Guardrail against infinite loops (max 5)
     mode: str                   # 'interactive' or 'auto_draft'
+    
+    # Follow-up Control
+    is_followup_mode: bool      # If True, we are processing follow-ups
+    followup_number: int        # 1 or 2 (which follow-up to draft)
+    thread_id: Optional[str]    # Gmail Thread ID for threading replies
     
     # Candidate Data (From Sheet)
     recipient_name: str

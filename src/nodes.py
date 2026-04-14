@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from src.state import AgentState
 from src.tools_sheets import fetch_lead, update_lead_status
-from src.tools_gmail import send_email, create_draft, validate_recipients
+from src.tools_gmail import send_email, create_draft, create_draft_reply, validate_recipients
 from src.utils import load_resume
 from src.prompts import (
     get_research_prompt,
@@ -15,6 +15,8 @@ from src.prompts import (
     get_generate_draft_user_prompt,
     get_refine_draft_system_prompt,
     get_refine_draft_user_prompt,
+    get_followup_system_prompt,
+    get_followup_user_prompt,
 )
 from src.analytics import log_event
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -80,7 +82,10 @@ def _get_model(name: str) -> ChatGoogleGenerativeAI:
 def fetch_lead_node(state: AgentState) -> Dict[str, Any]:
     """Fetches the next lead from Google Sheets."""
     logger.info("Fetching next lead...")
-    lead = fetch_lead()
+    is_followup = state.get('is_followup_mode', False)
+    followup_num = state.get('followup_number', 0)
+    
+    lead = fetch_lead(followup_number=followup_num if is_followup else 0)
     if not lead:
         logger.info("No more leads found. Ending workflow.")
         return {"status": "end"}
@@ -109,7 +114,7 @@ def fetch_lead_node(state: AgentState) -> Dict[str, Any]:
         **lead,
         "resume_content": resume_content,
         "resume_pdf_path": resume_pdf_path,
-        "search_summary": "Pending Research...",
+        "search_summary": "Pending Research..." if not is_followup else "Skipped for follow-up",
         "company_domain": "Tech",
         "iteration_count": 0,
         "selected_emails": selected_emails,
@@ -119,6 +124,10 @@ def fetch_lead_node(state: AgentState) -> Dict[str, Any]:
 
 def research_node(state: AgentState) -> Dict[str, Any]:
     """Performs Google Search to gather context on the company and recipient."""
+    if state.get('is_followup_mode'):
+        logger.info("Skipping research for follow-up.")
+        return {"search_summary": "Skipped for follow-up", "company_domain": "Tech"}
+
     logger.info(f"Researching target: {state['company_name']}...")
 
     prompt = get_research_prompt(
@@ -145,41 +154,56 @@ def research_node(state: AgentState) -> Dict[str, Any]:
 
 
 def generate_draft_node(state: AgentState) -> Dict[str, Any]:
-    """Generates the initial email draft with A/B subject line variants."""
-    logger.info(f"Generating draft for {state['recipient_name']}...")
+    """Generates the initial email draft (or follow-up)."""
+    is_followup = state.get('is_followup_mode', False)
+    followup_num = state.get('followup_number', 0)
 
-    system_prompt = get_generate_draft_system_prompt(
-        recipient_name=state['recipient_name'],
-        company_name=state['company_name'],
-        search_summary=state['search_summary'],
-        resume_content=state['resume_content'],
-    )
-    user_prompt = get_generate_draft_user_prompt()
-
-    structured_llm = _get_model("pro").with_structured_output(EmailDraftWithVariants)
+    if is_followup:
+        logger.info(f"Generating follow-up {followup_num} for {state['recipient_name']}...")
+        system_prompt = get_followup_system_prompt(
+            followup_number=followup_num,
+            recipient_name=state['recipient_name'],
+            company_name=state['company_name'],
+            resume_content=state['resume_content']
+        )
+        user_prompt = get_followup_user_prompt()
+        structured_llm = _get_model("flash").with_structured_output(EmailDraft) # Follow-ups don't need variants
+    else:
+        logger.info(f"Generating cold draft for {state['recipient_name']}...")
+        system_prompt = get_generate_draft_system_prompt(
+            recipient_name=state['recipient_name'],
+            company_name=state['company_name'],
+            search_summary=state['search_summary'],
+            resume_content=state['resume_content'],
+        )
+        user_prompt = get_generate_draft_user_prompt()
+        structured_llm = _get_model("pro").with_structured_output(EmailDraftWithVariants)
 
     try:
-        response: EmailDraftWithVariants = structured_llm.invoke([
+        response = structured_llm.invoke([
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_prompt),
         ])
 
-        variants = response.subject_variants or []
-        if not variants:
-            variants = ["Internship Inquiry"]
-
-        return {
-            "email_subject": variants[0],
-            "email_body": response.body,
-            "subject_variants": variants,
-            "status": "reviewing",
-        }
+        if is_followup:
+            return {
+                "email_subject": "Follow-up", # Will be handled by create_draft_reply if threaded
+                "email_body": response.body,
+                "status": "reviewing",
+            }
+        else:
+            variants = response.subject_variants or []
+            return {
+                "email_subject": variants[0] if variants else "Internship Inquiry",
+                "email_body": response.body,
+                "subject_variants": variants,
+                "status": "reviewing",
+            }
     except Exception as e:
         logger.error(f"Error generating draft: {e}")
         return {
-            "email_subject": "Internship Inquiry",
+            "email_subject": "Follow-up" if is_followup else "Internship Inquiry",
             "email_body": "Error generating draft. Please refine.",
-            "subject_variants": ["Internship Inquiry"],
             "status": "reviewing",
         }
 
@@ -223,7 +247,26 @@ def refine_draft_node(state: AgentState) -> Dict[str, Any]:
 
 
 def send_email_node(state: AgentState) -> Dict[str, Any]:
-    """Sends the email using Gmail API (with email validation)."""
+    """Sends the email or creates a draft (supports threaded replies)."""
+    is_followup = state.get('is_followup_mode', False)
+    thread_id = state.get('thread_id')
+    mode = state.get('mode', 'interactive')
+    
+    if is_followup and thread_id:
+        logger.info(f"Creating threaded follow-up draft in thread: {thread_id}")
+        try:
+            create_draft_reply(
+                thread_id=thread_id,
+                body=state['email_body']
+            )
+            log_event("followup_draft_created", state.get('recipient_name', ''), state.get('company_name', ''),
+                      data={"thread_id": thread_id, "followup_number": state.get('followup_number')})
+            return {"status": "sent"}
+        except Exception as e:
+            logger.error(f"Failed to create threaded draft: {e}")
+            return {"status": "error"}
+
+    # Fallback to normal send/draft logic
     recipients = state.get('selected_emails', [])
     if not recipients:
         logger.error("No selected emails found.")
@@ -285,24 +328,15 @@ def update_sheet_node(state: AgentState) -> Dict[str, Any]:
     """Updates the Google Sheet with completion status."""
     status_text = ""
     current_status = state['status']
-    candidate_emails = state.get('candidate_emails', [])
     mode = state.get('mode', 'interactive')
-
-    if not candidate_emails and current_status == 'drafting':
-        current_status = 'skipped'
-        logger.info("No candidate emails found. Marking as Skipped.")
-        log_event("email_skipped", state.get('recipient_name', ''), state.get('company_name', ''),
-                  data={"reason": "no_emails"})
-
-    logger.debug(f"Processing status update for Row {state['row_index']}. Status: {current_status}")
+    is_followup = state.get('is_followup_mode', False)
+    followup_num = state.get('followup_number', 0)
 
     if current_status == 'sent':
-        status_prefix = "Drafted" if mode == 'auto_draft' else "Sent"
+        status_prefix = "Drafted" if mode == 'auto_draft' or is_followup else "Sent"
         status_text = f"{status_prefix}: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
     elif current_status == 'skipped':
-        status_text = "Skipped - No Email"
-        log_event("email_skipped", state.get('recipient_name', ''), state.get('company_name', ''),
-                  data={"reason": "user_skipped"})
+        status_text = "Skipped"
 
     if status_text:
         logger.info(f"Updating Row {state['row_index']}: '{status_text}'")
@@ -311,6 +345,11 @@ def update_sheet_node(state: AgentState) -> Dict[str, Any]:
                 state['row_index'],
                 status_text,
                 status_index=state.get('status_index', 5),
+                followup_number=followup_num if is_followup else 0,
+                f_indices={
+                    'f1': state.get('f1_index'),
+                    'f2': state.get('f2_index')
+                }
             )
         except Exception as e:
             logger.error(f"Sheet update FAILED: {str(e)}")

@@ -113,3 +113,34 @@ def get_refine_draft_user_prompt(
     
     Return the updated Subject and Body.
     """
+
+
+# ---------------------------------------------------------------------------
+# 4. Follow-up Prompts
+# ---------------------------------------------------------------------------
+
+def get_followup_system_prompt(followup_number: int, recipient_name: str, company_name: str, resume_content: str) -> str:
+    """System prompt for follow-up emails."""
+    style = "gentle reminder and additional value" if followup_number == 1 else "final nudge and brief summary of interest"
+    
+    return f"""You are Devansh Soni, a systems-focused engineering student from IIT Kharagpur. 
+You are writing a FOLLOW-UP email (Number {followup_number}) to {recipient_name} at {company_name}.
+
+### CORE OBJECTIVE
+Draft a short, persistent follow-up that stays in the same thread.
+The style should be a {style}.
+
+### STYLE GUARDRAILS
+1. **ZERO FLUFF:** No "I hope you are doing well".
+2. **CONCISE:** Keep it under 3-4 sentences.
+3. **VALUE-DRIVEN:** If follow-up 1, mention you're bumping this up and briefly restate your interest in their work at {company_name}.
+4. **FINAL NUDGE:** If follow-up 2, mention this is your final attempt to reach out before moving on, but keep it professional.
+
+### RESUME CONTEXT:
+{resume_content}
+"""
+
+
+def get_followup_user_prompt() -> str:
+    """User prompt for follow-up generation."""
+    return "Draft the follow-up email body. The subject line will be handled by the threading system."

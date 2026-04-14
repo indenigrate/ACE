@@ -217,6 +217,74 @@ def create_draft(
     return draft
 
 
+def create_draft_reply(
+    thread_id: str,
+    body: str,
+) -> dict:
+    """Creates a threaded draft reply in an existing Gmail thread."""
+    service = get_gmail_service()
+    
+    # 1. Fetch the original thread to get the last message details for headers
+    thread = service.users().threads().get(userId='me', id=thread_id).execute()
+    messages = thread.get('messages', [])
+    if not messages:
+        raise ValueError(f"Thread {thread_id} has no messages.")
+    
+    # Use the last message in the thread as the one to reply to
+    last_msg = messages[-1]
+    headers = {h['name']: h['value'] for h in last_msg['payload']['headers']}
+    
+    to_field = headers.get('From')
+    original_subject = headers.get('Subject', '')
+    msg_id = headers.get('Message-ID')
+    
+    # Construct Reply Subject
+    subject = original_subject
+    if not subject.lower().startswith('re:'):
+        subject = f"Re: {subject}"
+        
+    # Construct References for threading
+    prev_references = headers.get('References', '')
+    references = f"{prev_references} {msg_id}".strip()
+    
+    # 2. Build the reply message
+    plain_text_body = clean_text_plain(body)
+    html_body_content = markdown_to_html(body)
+
+    message = EmailMessage()
+    message['To'] = to_field
+    message['Subject'] = subject
+    message['In-Reply-To'] = msg_id
+    message['References'] = references
+    message.set_content(plain_text_body)
+
+    html_structure = f'''
+    <div dir="ltr" style="font-family: Arial, sans-serif; font-size: 12px; color: #000000;">
+        {html_body_content}
+        {EMAIL_SIGNATURE}
+    </div>
+    '''
+    message.add_alternative(html_structure, subtype='html')
+    
+    encoded = _encode_message(message)
+    
+    # 3. Create the draft with the threadId
+    create_body = {
+        'message': {
+            'threadId': thread_id,
+            'raw': encoded
+        }
+    }
+
+    draft = _execute_with_retry(
+        lambda: service.users().drafts().create(
+            userId="me", body=create_body
+        ).execute()
+    )
+    logger.info(f"Threaded draft reply created in thread: {thread_id}")
+    return draft
+
+
 def send_email(
     to: str,
     subject: str,

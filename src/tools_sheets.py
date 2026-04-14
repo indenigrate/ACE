@@ -42,8 +42,11 @@ def extract_emails_from_row(row_data: list, status_index: int) -> List[str]:
     return list(dict.fromkeys(found_emails))
 
 
-def fetch_lead() -> Optional[Dict]:
-    """Dynamically finds the 'Status' column and fetches the first unprocessed row."""
+def fetch_lead(followup_number: int = 0) -> Optional[Dict]:
+    """
+    Dynamically finds relevant columns and fetches the next row.
+    If followup_number > 0, fetches rows that need follow-up.
+    """
     if not GOOGLE_SHEET_ID:
         raise ValueError("GOOGLE_SHEET_ID is not set in environment variables.")
 
@@ -62,38 +65,90 @@ def fetch_lead() -> Optional[Dict]:
     headers = [str(h).strip().lower() for h in values[0]]
     logger.debug(f"Headers found: {headers}")
 
-    try:
-        status_index = headers.index("status")
-        logger.debug(
-            f"'Status' column at index {status_index} "
-            f"(Column {_column_letter(status_index)})"
-        )
-    except ValueError:
+    # Robust header detection
+    status_index = -1
+    thread_id_index = -1
+    f1_index = -1
+    f2_index = -1
+
+    for i, h in enumerate(headers):
+        if h == "status":
+            status_index = i
+        elif h == "thread id":
+            thread_id_index = i
+        elif h == "follow-up 1" or h == "followup 1":
+            f1_index = i
+        elif h == "follow-up 2" or h == "followup 2":
+            f2_index = i
+
+    if status_index == -1:
         status_index = 5
-        logger.debug("'Status' header not found. Defaulting to index 5 (Column F)")
+        logger.warning("'Status' header not found. Defaulting to index 5")
 
     for i, row in enumerate(values[1:], start=2):
         status = row[status_index] if len(row) > status_index else ""
-        if not status or status.strip() == "":
+        
+        # Follow-up Logic
+        if followup_number > 0:
+            # We only follow up if initial status is 'Sent' or 'Drafted'
+            if not (status.lower().startswith("sent") or status.lower().startswith("drafted")):
+                continue
+            
+            # Check if this follow-up is already done
+            current_f_idx = f1_index if followup_number == 1 else f2_index
+            if current_f_idx != -1 and len(row) > current_f_idx and row[current_f_idx].strip():
+                continue # Already drafted/replied
+            
+            # Found a lead for follow-up
             candidate_emails = extract_emails_from_row(row, status_index)
+            thread_id = row[thread_id_index] if thread_id_index != -1 and len(row) > thread_id_index else None
+            
             return {
                 "row_index": i,
                 "status_index": status_index,
+                "thread_id_index": thread_id_index,
+                "f1_index": f1_index,
+                "f2_index": f2_index,
                 "recipient_name": row[0] if len(row) > 0 else "Unknown",
                 "company_name": row[1] if len(row) > 1 else "Unknown",
                 "position": row[2] if len(row) > 2 else "Unknown",
                 "candidate_emails": candidate_emails,
+                "thread_id": thread_id,
                 "status": "drafting",
             }
+        
+        # Normal Cold Email Logic
+        else:
+            if not status or status.strip() == "":
+                candidate_emails = extract_emails_from_row(row, status_index)
+                return {
+                    "row_index": i,
+                    "status_index": status_index,
+                    "thread_id_index": thread_id_index,
+                    "f1_index": f1_index,
+                    "f2_index": f2_index,
+                    "recipient_name": row[0] if len(row) > 0 else "Unknown",
+                    "company_name": row[1] if len(row) > 1 else "Unknown",
+                    "position": row[2] if len(row) > 2 else "Unknown",
+                    "candidate_emails": candidate_emails,
+                    "status": "drafting",
+                }
     return None
 
 
 def update_lead_status(
-    row_index: int, status_text: str, status_index: int = 5
+    row_index: int, status_text: str, status_index: int = 5, followup_number: int = 0, f_indices: Dict = None
 ) -> None:
-    """Updates the Status column at the dynamically discovered index."""
+    """Updates the appropriate column (Status or Follow-up)."""
     service = get_sheets_service()
-    col_letter = _column_letter(status_index)
+    
+    target_idx = status_index
+    if followup_number == 1 and f_indices and f_indices.get('f1') is not None and f_indices.get('f1') != -1:
+        target_idx = f_indices['f1']
+    elif followup_number == 2 and f_indices and f_indices.get('f2') is not None and f_indices.get('f2') != -1:
+        target_idx = f_indices['f2']
+
+    col_letter = _column_letter(target_idx)
     range_name = f"'{GOOGLE_SHEET_NAME}'!{col_letter}{row_index}"
 
     body = {'values': [[status_text]]}
@@ -105,5 +160,5 @@ def update_lead_status(
         body=body,
     ).execute()
 
-    logger.info(f"Sheet row {row_index} updated: {status_text}")
+    logger.info(f"Sheet row {row_index} column {col_letter} updated: {status_text}")
     time.sleep(1.5)
