@@ -293,44 +293,47 @@ def send_email_node(state: AgentState) -> Dict[str, Any]:
     if mode == 'auto_draft':
         logger.info(f"[Auto Mode] Creating draft for: {to_field}...")
         try:
-            create_draft(
+            draft = create_draft(
                 to=to_field,
                 subject=state['email_subject'],
                 body=state['email_body'],
                 attachment_path=attachment_path,
             )
+            thread_id = draft.get('message', {}).get('threadId')
             log_event("draft_created", state.get('recipient_name', ''), state.get('company_name', ''),
-                      data={"to": to_field, "subject": state['email_subject']})
-            logger.info("Draft created successfully.")
+                      data={"to": to_field, "subject": state['email_subject'], "thread_id": thread_id})
+            logger.info(f"Draft created successfully. Thread ID: {thread_id}")
+            return {"status": "sent", "thread_id": thread_id}
         except Exception as e:
             logger.error(f"Failed to create draft: {e}")
             return {"status": "error"}
     else:
         logger.info(f"[Interactive] Sending email to: {to_field}...")
         try:
-            send_email(
+            result = send_email(
                 to=to_field,
                 subject=state['email_subject'],
                 body=state['email_body'],
                 attachment_path=attachment_path,
             )
+            thread_id = result.get('threadId')
             log_event("email_sent", state.get('recipient_name', ''), state.get('company_name', ''),
-                      data={"to": to_field, "subject": state['email_subject']})
-            logger.info("Email sent successfully.")
+                      data={"to": to_field, "subject": state['email_subject'], "thread_id": thread_id})
+            logger.info(f"Email sent successfully. Thread ID: {thread_id}")
+            return {"status": "sent", "thread_id": thread_id}
         except Exception as e:
             logger.error(f"Failed to send email: {e}")
             return {"status": "error"}
 
-    return {"status": "sent"}
-
 
 def update_sheet_node(state: AgentState) -> Dict[str, Any]:
-    """Updates the Google Sheet with completion status."""
+    """Updates the Google Sheet with completion status and Thread ID."""
     status_text = ""
     current_status = state['status']
     mode = state.get('mode', 'interactive')
     is_followup = state.get('is_followup_mode', False)
     followup_num = state.get('followup_number', 0)
+    thread_id = state.get('thread_id')
 
     if current_status == 'sent':
         status_prefix = "Drafted" if mode == 'auto_draft' or is_followup else "Sent"
@@ -349,7 +352,9 @@ def update_sheet_node(state: AgentState) -> Dict[str, Any]:
                 f_indices={
                     'f1': state.get('f1_index'),
                     'f2': state.get('f2_index')
-                }
+                },
+                thread_id=thread_id,
+                thread_id_index=state.get('thread_id_index')
             )
         except Exception as e:
             logger.error(f"Sheet update FAILED: {str(e)}")

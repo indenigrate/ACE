@@ -64,6 +64,7 @@ The body must demonstrate a clear understanding of the recipient's work and offe
 - The Bridge: "I know your time is valuable so here are 5 bullets I want you to know:"
 - The Bullets: 5 factual, high-impact points. Use standard Markdown bullets (`- `). **Bold** technologies and metrics.
 - The Close: A short, sincere closing paragraph covering internship interest, attached resume, and a request for guidance.
+- NO SIGN-OFF: DO NOT include any closing like "Best,", "Sincerely,", "Thanks,", or "Best, Devansh". End the message immediately after the final sentence.
 
 ### INPUT DATA
 - **Target:** {recipient_name} at {company_name}
@@ -94,7 +95,7 @@ def get_refine_draft_system_prompt() -> str:
     - NO FLUFF (e.g., "I hope this email finds you well").
     - Professional, peer-to-peer tone.
     - Concise (under 125 words).
-    - NO SIGNATURE: Do NOT include any signature, sign-off, or footer at the end.
+    - NO SIGN-OFF: DO NOT include any closing like "Best,", "Sincerely,", "Thanks,", or "Best, Devansh". End the message immediately after the final sentence.
     """
 
 
@@ -135,6 +136,7 @@ The style should be a {style}.
 2. **CONCISE:** Keep it under 3-4 sentences.
 3. **VALUE-DRIVEN:** If follow-up 1, mention you're bumping this up and briefly restate your interest in their work at {company_name}.
 4. **FINAL NUDGE:** If follow-up 2, mention this is your final attempt to reach out before moving on, but keep it professional.
+5. **NO SIGN-OFF:** DO NOT include any closing like "Best,", "Sincerely,", "Thanks,", or "Best, Devansh". End the message immediately after the final sentence.
 
 ### RESUME CONTEXT:
 {resume_content}
@@ -144,3 +146,4 @@ The style should be a {style}.
 def get_followup_user_prompt() -> str:
     """User prompt for follow-up generation."""
     return "Draft the follow-up email body. The subject line will be handled by the threading system."
+

@@ -137,11 +137,18 @@ def fetch_lead(followup_number: int = 0) -> Optional[Dict]:
 
 
 def update_lead_status(
-    row_index: int, status_text: str, status_index: int = 5, followup_number: int = 0, f_indices: Dict = None
+    row_index: int, 
+    status_text: str, 
+    status_index: int = 5, 
+    followup_number: int = 0, 
+    f_indices: Dict = None,
+    thread_id: str = None,
+    thread_id_index: int = -1
 ) -> None:
-    """Updates the appropriate column (Status or Follow-up)."""
+    """Updates the appropriate column (Status or Follow-up) and Thread ID."""
     service = get_sheets_service()
     
+    # 1. Update Status/Follow-up Column
     target_idx = status_index
     if followup_number == 1 and f_indices and f_indices.get('f1') is not None and f_indices.get('f1') != -1:
         target_idx = f_indices['f1']
@@ -150,7 +157,6 @@ def update_lead_status(
 
     col_letter = _column_letter(target_idx)
     range_name = f"'{GOOGLE_SHEET_NAME}'!{col_letter}{row_index}"
-
     body = {'values': [[status_text]]}
 
     service.spreadsheets().values().update(
@@ -159,6 +165,19 @@ def update_lead_status(
         valueInputOption="USER_ENTERED",
         body=body,
     ).execute()
-
     logger.info(f"Sheet row {row_index} column {col_letter} updated: {status_text}")
+
+    # 2. Update Thread ID Column (if new ID provided and column exists)
+    if thread_id and thread_id_index != -1:
+        tid_col_letter = _column_letter(thread_id_index)
+        tid_range = f"'{GOOGLE_SHEET_NAME}'!{tid_col_letter}{row_index}"
+        tid_body = {'values': [[thread_id]]}
+        service.spreadsheets().values().update(
+            spreadsheetId=GOOGLE_SHEET_ID,
+            range=tid_range,
+            valueInputOption="USER_ENTERED",
+            body=tid_body,
+        ).execute()
+        logger.info(f"Thread ID saved to row {row_index} column {tid_col_letter}: {thread_id}")
+
     time.sleep(1.5)
