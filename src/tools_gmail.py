@@ -220,8 +220,9 @@ def create_draft(
 def create_draft_reply(
     thread_id: str,
     body: str,
+    attachment_path: Optional[str] = None,
 ) -> dict:
-    """Creates a threaded draft reply in an existing Gmail thread."""
+    """Creates a threaded draft reply in an existing Gmail thread with optional attachment."""
     service = get_gmail_service()
     
     # 1. Fetch the original thread to get the last message details for headers
@@ -234,7 +235,8 @@ def create_draft_reply(
     last_msg = messages[-1]
     headers = {h['name']: h['value'] for h in last_msg['payload']['headers']}
     
-    to_field = headers.get('From')
+    # The last message was sent BY us, so reply TO the original recipients
+    to_field = headers.get('To')
     original_subject = headers.get('Subject', '')
     msg_id = headers.get('Message-ID')
     
@@ -247,24 +249,10 @@ def create_draft_reply(
     prev_references = headers.get('References', '')
     references = f"{prev_references} {msg_id}".strip()
     
-    # 2. Build the reply message
-    plain_text_body = clean_text_plain(body)
-    html_body_content = markdown_to_html(body)
-
-    message = EmailMessage()
-    message['To'] = to_field
-    message['Subject'] = subject
+    # 2. Build the reply message (reuse shared builder for body + attachment)
+    message = _build_email_message(to_field, subject, body, attachment_path)
     message['In-Reply-To'] = msg_id
     message['References'] = references
-    message.set_content(plain_text_body)
-
-    html_structure = f'''
-    <div dir="ltr" style="font-family: Arial, sans-serif; font-size: 12px; color: #000000;">
-        {html_body_content}
-        {EMAIL_SIGNATURE}
-    </div>
-    '''
-    message.add_alternative(html_structure, subtype='html')
     
     encoded = _encode_message(message)
     

@@ -257,7 +257,8 @@ def send_email_node(state: AgentState) -> Dict[str, Any]:
         try:
             create_draft_reply(
                 thread_id=thread_id,
-                body=state['email_body']
+                body=state['email_body'],
+                attachment_path=state.get('resume_pdf_path'),
             )
             log_event("followup_draft_created", state.get('recipient_name', ''), state.get('company_name', ''),
                       data={"thread_id": thread_id, "followup_number": state.get('followup_number')})
