@@ -265,13 +265,16 @@ def send_email_node(state: AgentState) -> Dict[str, Any]:
             return {"status": "sent"}
         except Exception as e:
             logger.error(f"Failed to create threaded draft: {e}")
-            return {"status": "error"}
+            error_str = str(e)
+            if "404" in error_str and "notFound" in error_str:
+                error_str = "Thread Not Found in Gmail (404)"
+            return {"status": "error", "error_message": error_str}
 
     # Fallback to normal send/draft logic
     recipients = state.get('selected_emails', [])
     if not recipients:
         logger.error("No selected emails found.")
-        return {"status": "error"}
+        return {"status": "error", "error_message": "No selected emails found"}
 
     # Validate emails before sending
     to_field = ", ".join(recipients)
@@ -307,7 +310,7 @@ def send_email_node(state: AgentState) -> Dict[str, Any]:
             return {"status": "sent", "thread_id": thread_id}
         except Exception as e:
             logger.error(f"Failed to create draft: {e}")
-            return {"status": "error"}
+            return {"status": "error", "error_message": str(e)}
     else:
         logger.info(f"[Interactive] Sending email to: {to_field}...")
         try:
@@ -324,7 +327,7 @@ def send_email_node(state: AgentState) -> Dict[str, Any]:
             return {"status": "sent", "thread_id": thread_id}
         except Exception as e:
             logger.error(f"Failed to send email: {e}")
-            return {"status": "error"}
+            return {"status": "error", "error_message": str(e)}
 
 
 def update_sheet_node(state: AgentState) -> Dict[str, Any]:
@@ -341,6 +344,9 @@ def update_sheet_node(state: AgentState) -> Dict[str, Any]:
         status_text = f"{status_prefix}: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
     elif current_status == 'skipped':
         status_text = "Skipped"
+    elif current_status == 'error':
+        error_msg = state.get("error_message", "Failed")
+        status_text = f"Error: {error_msg}"
 
     if status_text:
         logger.info(f"Updating Row {state['row_index']}: '{status_text}'")
