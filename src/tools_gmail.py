@@ -4,7 +4,6 @@ import os
 import mimetypes
 import random
 import re
-import socket
 import time
 from email.message import EmailMessage
 from email.policy import default
@@ -51,25 +50,42 @@ def get_gmail_service():
 
 
 # ---------------------------------------------------------------------------
-# Email Validation
+# Email Validation (RFC syntax + MX record verification via email-validator)
 # ---------------------------------------------------------------------------
-_EMAIL_STRICT_RE = re.compile(
-    r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-)
+from dataclasses import dataclass, field
+from email_validator import validate_email as _ev_validate, EmailNotValidError
 
 
-def validate_email(email: str) -> bool:
-    """Validates an email address format and checks domain DNS resolution."""
-    if not _EMAIL_STRICT_RE.match(email):
-        logger.warning(f"Email failed format check: {email}")
-        return False
-    domain = email.split('@')[1]
+@dataclass
+class ValidationResult:
+    """Result of validating a single email address."""
+    original: str
+    is_valid: bool
+    normalized: str = ""
+    failure_reason: str = ""
+
+
+def validate_email(email: str) -> ValidationResult:
+    """Validates an email address using RFC syntax checks and DNS MX record lookup.
+
+    Returns a ValidationResult with normalized email on success,
+    or a human-readable failure_reason on failure.
+    """
     try:
-        socket.getaddrinfo(domain, None)
-        return True
-    except socket.gaierror:
-        logger.warning(f"Email domain does not resolve: {domain} (email: {email})")
-        return False
+        info = _ev_validate(email, check_deliverability=True)
+        return ValidationResult(
+            original=email,
+            is_valid=True,
+            normalized=info.normalized,
+        )
+    except EmailNotValidError as e:
+        reason = str(e)
+        logger.warning(f"Email validation failed for '{email}': {reason}")
+        return ValidationResult(
+            original=email,
+            is_valid=False,
+            failure_reason=reason,
+        )
 
 
 def validate_recipients(recipients: str) -> Tuple[List[str], List[str]]:
@@ -79,8 +95,9 @@ def validate_recipients(recipients: str) -> Tuple[List[str], List[str]]:
         (valid_emails, invalid_emails)
     """
     emails = [e.strip() for e in recipients.split(',') if e.strip()]
-    valid = [e for e in emails if validate_email(e)]
-    invalid = [e for e in emails if not validate_email(e)]
+    results = [validate_email(e) for e in emails]
+    valid = [r.normalized for r in results if r.is_valid]
+    invalid = [r.original for r in results if not r.is_valid]
     return valid, invalid
 
 

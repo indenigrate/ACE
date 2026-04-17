@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from src.state import AgentState
 from src.tools_sheets import fetch_lead, update_lead_status
-from src.tools_gmail import send_email, create_draft, create_draft_reply, validate_recipients
+from src.tools_gmail import send_email, create_draft, create_draft_reply, validate_recipients, validate_email
 from src.utils import load_resume
 from src.prompts import (
     get_research_prompt,
@@ -119,6 +119,55 @@ def fetch_lead_node(state: AgentState) -> Dict[str, Any]:
         "iteration_count": 0,
         "selected_emails": selected_emails,
         "subject_variants": None,
+    }
+
+
+def validate_emails_node(state: AgentState) -> Dict[str, Any]:
+    """Validates all candidate emails using RFC syntax + MX record checks.
+
+    Filters out invalid emails early — before wasting LLM calls on
+    research and draft generation for unreachable addresses.
+    """
+    if state.get('status') == 'end':
+        return {}
+
+    candidates = state.get('candidate_emails', [])
+    if not candidates:
+        return {}
+
+    logger.info(f"Validating {len(candidates)} candidate email(s)...")
+    valid = []
+    invalid = []
+
+    for email in candidates:
+        result = validate_email(email)
+        if result.is_valid:
+            valid.append(result.normalized)
+            logger.info(f"  ✓ {result.normalized}")
+        else:
+            invalid.append(email)
+            logger.warning(f"  ✗ {email} — {result.failure_reason}")
+            log_event("email_validation_failed", state.get('recipient_name', ''), state.get('company_name', ''),
+                      data={"email": email, "reason": result.failure_reason})
+
+    if not valid:
+        logger.error(f"All emails invalid for {state.get('recipient_name')}. Skipping lead.")
+        log_event("lead_skipped_invalid_emails", state.get('recipient_name', ''), state.get('company_name', ''),
+                  data={"invalid_emails": invalid})
+        return {"candidate_emails": [], "selected_emails": [], "status": "skipped"}
+
+    logger.info(f"Validation complete: {len(valid)} valid, {len(invalid)} invalid.")
+
+    # Update selected_emails if they were auto-selected in auto_draft mode
+    selected = state.get('selected_emails')
+    if selected:
+        selected = [e for e in selected if e in valid]
+        if not selected:
+            selected = valid  # fallback to all valid emails
+
+    return {
+        "candidate_emails": valid,
+        "selected_emails": selected if selected else state.get('selected_emails'),
     }
 
 
