@@ -231,14 +231,31 @@ def create_draft_reply(
     if not messages:
         raise ValueError(f"Thread {thread_id} has no messages.")
     
-    # Use the last message in the thread as the one to reply to
-    last_msg = messages[-1]
-    headers = {h['name']: h['value'] for h in last_msg['payload']['headers']}
+    is_bounced = False
+    last_valid_msg = None
+    
+    for msg in messages:
+        headers = {h['name']: h['value'] for h in msg['payload']['headers']}
+        from_field = headers.get('From', '').lower()
+        if 'mailer-daemon' in from_field or 'postmaster' in from_field:
+            is_bounced = True
+        else:
+            last_valid_msg = msg
+
+    if is_bounced:
+        logger.info(f"Bounced email detected in thread {thread_id}. Skipping draft creation.")
+        return {"is_bounced": True}
+
+    if not last_valid_msg:
+        last_valid_msg = messages[-1]
+
+    # Use the last valid message in the thread as the one to reply to
+    headers = {h['name'].lower(): h['value'] for h in last_valid_msg['payload']['headers']}
     
     # The last message was sent BY us, so reply TO the original recipients
-    to_field = headers.get('To')
-    original_subject = headers.get('Subject', '')
-    msg_id = headers.get('Message-ID')
+    to_field = headers.get('to')
+    original_subject = headers.get('subject', '')
+    msg_id = headers.get('message-id')
     
     # Construct Reply Subject
     subject = original_subject
@@ -246,13 +263,16 @@ def create_draft_reply(
         subject = f"Re: {subject}"
         
     # Construct References for threading
-    prev_references = headers.get('References', '')
-    references = f"{prev_references} {msg_id}".strip()
+    prev_references = headers.get('references', '')
+    references = f"{prev_references} {msg_id}".strip() if msg_id else prev_references
     
     # 2. Build the reply message (reuse shared builder for body + attachment)
     message = _build_email_message(to_field, subject, body, attachment_path)
-    message['In-Reply-To'] = msg_id
-    message['References'] = references
+    if msg_id:
+        message['In-Reply-To'] = msg_id
+    if references:
+        message['References'] = references
+    message['From'] = headers.get('from', 'me')
     
     encoded = _encode_message(message)
     
@@ -270,6 +290,7 @@ def create_draft_reply(
         ).execute()
     )
     logger.info(f"Threaded draft reply created in thread: {thread_id}")
+    draft['is_bounced'] = is_bounced
     return draft
 
 

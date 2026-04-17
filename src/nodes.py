@@ -255,11 +255,14 @@ def send_email_node(state: AgentState) -> Dict[str, Any]:
     if is_followup and thread_id:
         logger.info(f"Creating threaded follow-up draft in thread: {thread_id}")
         try:
-            create_draft_reply(
+            draft = create_draft_reply(
                 thread_id=thread_id,
                 body=state['email_body'],
                 attachment_path=state.get('resume_pdf_path'),
             )
+            if draft.get('is_bounced'):
+                return {"status": "bounced"}
+                
             log_event("followup_draft_created", state.get('recipient_name', ''), state.get('company_name', ''),
                       data={"thread_id": thread_id, "followup_number": state.get('followup_number')})
             return {"status": "sent"}
@@ -344,6 +347,8 @@ def update_sheet_node(state: AgentState) -> Dict[str, Any]:
         status_text = f"{status_prefix}: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
     elif current_status == 'skipped':
         status_text = "Skipped"
+    elif current_status == 'bounced':
+        status_text = "Bounced"
     elif current_status == 'error':
         error_msg = state.get("error_message", "Failed")
         status_text = f"Error: {error_msg}"

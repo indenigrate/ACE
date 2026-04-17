@@ -15,9 +15,13 @@ I am a product-focused engineer who operates at the intersection of **distribute
 ### **1. Magnum Opus: Agentic AI Systems**
 
 #### **ACE (Agentic Cold Emailer)**
-*Core Tech: Python, LangGraph, Vertex AI, Gmail API, Google Sheets*
+*Core Tech: Python, LangGraph, Vertex AI, Gmail API, Google Sheets, Serper API*
 *   Engineered an **autonomous agentic workflow** to streamline internship outreach, reducing the time required per personalized email from **20 minutes to just 20 seconds** by parallelizing company research and draft generation.
 *   Implemented a **Human-in-the-Loop** architecture enabling real-time user review of AI drafts before dispatching, while automatically synchronizing status updates with Google Sheets.
+*   Built **A/B subject line testing** with 3 LLM-generated variants per email and **automated threaded follow-ups** via Gmail API, with robust error handling for missing threads.
+*   Developed a **campaign analytics engine** tracking conversion funnels, skip-reason breakdowns, and per-lead status across the entire pipeline.
+*   Architected a **multi-stakeholder enrichment pipeline** using Google Search API + Gemini to discover multiple key contacts (CEO, CTO, VPs) per company, minimizing API costs with a two-step search-then-parse strategy.
+
 
 #### **Conversational Survey Agent**
 *Core Tech: LangGraph, Python, Google Gemini, Redis, Firestore*
