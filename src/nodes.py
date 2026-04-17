@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from src.state import AgentState
 from src.tools_sheets import fetch_lead, update_lead_status
 from src.tools_gmail import send_email, create_draft, create_draft_reply, validate_recipients, validate_email
-from src.utils import load_resume
+from src.utils import load_resume, infer_first_name_from_email
 from src.prompts import (
     get_research_prompt,
     get_generate_draft_system_prompt,
@@ -100,6 +100,24 @@ def fetch_lead_node(state: AgentState) -> Dict[str, Any]:
         if candidate_emails:
             selected_emails = candidate_emails
             logger.info(f"Auto-selected emails for draft: {selected_emails}")
+
+    # Infer first name from email if recipient_name looks like a company name
+    recipient_name = lead.get('recipient_name', 'Unknown')
+    candidate_emails = lead.get('candidate_emails', [])
+    inferred_name = None
+    for email in candidate_emails:
+        name = infer_first_name_from_email(email)
+        if name:
+            inferred_name = name
+            break
+
+    # If recipient_name matches company_name (i.e. no real person name), use inferred
+    company_name = lead.get('company_name', '')
+    if recipient_name.lower().strip() == company_name.lower().strip() and inferred_name:
+        logger.info(f"Inferred first name '{inferred_name}' from email for {company_name}")
+        lead['recipient_name'] = inferred_name
+    elif inferred_name and recipient_name in ('Unknown', ''):
+        lead['recipient_name'] = inferred_name
 
     resume_content = load_resume()
 

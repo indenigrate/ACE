@@ -63,7 +63,7 @@ Select exactly **5 impact bullets** from the Resume Context below. Follow these 
 3. **WARM CLOSE:** After the bullets, add a brief closing paragraph (1-2 sentences) that naturally conveys: you are actively seeking an internship opportunity, your resume is attached for reference, and if no openings are available you would genuinely appreciate any time they can spare to review your profile and offer guidance to someone starting out in the field. Keep it humble and human — not templated.
 
 ### FORMAT
-- Salutation: "Hi [First Name],"
+- Salutation: If the recipient name looks like a person's name, use "Hi [First Name],". If it looks like a company name or is unknown, use "Hi [Company Name] Team," — NEVER output the literal placeholder "[First Name]".
 - The Hook: One dense, insightful sentence linking their work to your experience.
 - The Bridge: "I know your time is valuable so here are 5 bullets I want you to know:"
 - The Bullets: 5 factual, high-impact points dynamically selected for this company. Use standard Markdown bullets (`- `). **Bold** technologies and metrics.
