@@ -330,3 +330,61 @@ def send_email(
     )
     logger.info(f"Email sent to: {to}")
     return result
+
+
+# ---------------------------------------------------------------------------
+# Draft Management
+# ---------------------------------------------------------------------------
+def list_drafts(max_results: int = 100) -> list[dict]:
+    """Fetches the most recent Gmail drafts (newest first).
+
+    Returns a list of draft metadata dicts: [{"id": ..., "message": {"id": ...}}, ...]
+    Handles pagination if max_results exceeds a single page.
+    """
+    service = get_gmail_service()
+    drafts: list[dict] = []
+    page_token = None
+
+    while len(drafts) < max_results:
+        page_size = min(max_results - len(drafts), 100)
+        result = _execute_with_retry(
+            lambda pt=page_token, ps=page_size: service.users().drafts().list(
+                userId="me", maxResults=ps, pageToken=pt
+            ).execute()
+        )
+        batch = result.get("drafts", [])
+        if not batch:
+            break
+        drafts.extend(batch)
+        page_token = result.get("nextPageToken")
+        if not page_token:
+            break
+
+    return drafts[:max_results]
+
+
+def get_draft_details(draft_id: str) -> dict:
+    """Fetches full draft details including headers (To, Subject)."""
+    service = get_gmail_service()
+    draft = _execute_with_retry(
+        lambda: service.users().drafts().get(
+            userId="me", id=draft_id, format="metadata",
+            metadataHeaders=["To", "Subject"],
+        ).execute()
+    )
+    return draft
+
+
+def send_draft(draft_id: str) -> dict:
+    """Sends an existing Gmail draft by its ID. Retries on rate limits.
+
+    Returns the sent message object from the Gmail API.
+    """
+    service = get_gmail_service()
+    result = _execute_with_retry(
+        lambda: service.users().drafts().send(
+            userId="me", body={"id": draft_id}
+        ).execute()
+    )
+    logger.info(f"Draft {draft_id} sent successfully.")
+    return result

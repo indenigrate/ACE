@@ -1,13 +1,17 @@
 import sys
 import argparse
 import logging
+import time
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
+from rich.table import Table
+from rich.live import Live
 
 from src.graph import create_graph
 from src.state import AgentState
 from src.analytics import log_event, format_summary
+from src.tools_gmail import list_drafts, get_draft_details, send_draft
 from config.settings import MAX_REFINEMENT_ITERATIONS
 
 logger = logging.getLogger(__name__)
@@ -64,12 +68,100 @@ def display_variants(state: AgentState) -> None:
     return selected_subject
 
 
+# ---------------------------------------------------------------------------
+# Send Drafts Mode
+# ---------------------------------------------------------------------------
+SEND_INTERVAL = 20  # seconds between sends
+
+
+def send_drafts_loop(limit: int) -> None:
+    """Fetch recent Gmail drafts and send them at 20-second intervals.
+
+    Args:
+        limit: Max number of drafts to send. 0 means unlimited (until exhausted).
+    """
+    mode_label = f"up to {limit}" if limit > 0 else "all available"
+    console.print(Panel(
+        f"[bold magenta]Send Drafts Mode[/bold magenta]\n"
+        f"Sending [bold]{mode_label}[/bold] recent drafts at {SEND_INTERVAL}s intervals.\n"
+        f"Press [bold red]Ctrl+C[/bold red] to stop.",
+        expand=False,
+    ))
+
+    # Fetch drafts
+    fetch_count = limit if limit > 0 else 500  # reasonable upper bound
+    console.print(f"\n[dim]Fetching drafts...[/dim]")
+    drafts = list_drafts(max_results=fetch_count)
+
+    if not drafts:
+        console.print("[yellow]No drafts found. Nothing to send.[/yellow]")
+        return
+
+    total = len(drafts)
+    if limit > 0:
+        total = min(total, limit)
+        drafts = drafts[:total]
+
+    console.print(f"[green]Found {len(drafts)} draft(s) to send.[/green]\n")
+
+    sent_count = 0
+    try:
+        for i, draft_meta in enumerate(drafts, 1):
+            draft_id = draft_meta["id"]
+
+            # Fetch header details for display
+            try:
+                details = get_draft_details(draft_id)
+                headers = {
+                    h["name"]: h["value"]
+                    for h in details.get("message", {}).get("payload", {}).get("headers", [])
+                }
+                to_field = headers.get("To", "[unknown]")
+                subject = headers.get("Subject", "[no subject]")
+            except Exception:
+                to_field = "[unknown]"
+                subject = "[could not fetch details]"
+
+            console.print(
+                f"[bold cyan][{i}/{total}][/bold cyan] "
+                f"Sending → [bold]{to_field}[/bold]  ·  {subject}"
+            )
+
+            # Send
+            try:
+                send_draft(draft_id)
+                sent_count += 1
+                console.print(f"  [green]✓ Sent successfully[/green]")
+            except Exception as e:
+                console.print(f"  [red]✗ Failed: {e}[/red]")
+
+            # Sleep between sends (skip after the last one)
+            if i < total:
+                console.print(f"  [dim]Waiting {SEND_INTERVAL}s...[/dim]")
+                time.sleep(SEND_INTERVAL)
+
+    except KeyboardInterrupt:
+        console.print(f"\n[bold red]Interrupted![/bold red]")
+
+    console.print(f"\n[bold green]Done. Sent {sent_count}/{total} draft(s).[/bold green]")
+
+
 def main():
     parser = argparse.ArgumentParser(description="ACE: Agentic Cold Emailer")
-    parser.add_argument("--follow-ups", type=int, choices=[1, 2], help="Run follow-up sequence (1 or 2)")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--follow-ups", type=int, choices=[1, 2], help="Run follow-up sequence (1 or 2)")
+    group.add_argument(
+        "--send-drafts", type=int, nargs="?", const=0, default=None, metavar="N",
+        help="Send recent Gmail drafts at 20s intervals. Optionally specify N to limit count."
+    )
     args = parser.parse_args()
 
     console.print(Panel("[bold green]ACE: Agentic Cold Emailer[/bold green]", expand=False))
+
+    # Dispatch to send-drafts mode if requested
+    if args.send_drafts is not None:
+        send_drafts_loop(args.send_drafts)
+        return
 
     is_followup = args.follow_ups is not None
     followup_num = args.follow_ups if is_followup else 0
