@@ -1,9 +1,27 @@
+# Python
 __pycache__/
+.venv/
+*.pyc
+
+# Environment
 .env
+
+# Google OAuth
 credentials.json
-.venv
+config/credentials.json
 token.json
 config/token.json
+
+# Personal data
 resume.md
 resume.pdf
+
+# Runtime data
 analytics.json
+analytics_backup.json
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
