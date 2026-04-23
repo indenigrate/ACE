@@ -64,25 +64,29 @@ class ThreadEvaluation(BaseModel):
 
 # Lazy Model Factory (singleton cache)
 # ---------------------------------------------------------------------------
-_model_cache: Dict[str, ChatGoogleGenerativeAI] = {}
+_model_cache: Dict[str, Any] = {}
 
 
-def _get_model(name: str) -> ChatGoogleGenerativeAI:
+def _get_model(name: str) -> Any:
     """Lazily initializes and caches LLM model instances."""
     if name not in _model_cache:
         configs = {
             "pro": {"model": "gemini-3.1-pro-preview"},
             "flash": {"model": "gemini-3-flash-preview"},
-            "research": {
-                "model": "gemini-3-flash-preview",
-                "google_search_retrieval": True,
-            },
+            "research": {"model": "gemini-3-flash-preview"},
         }
         if name not in configs:
             raise ValueError(f"Unknown model name: {name}")
-        _model_cache[name] = ChatGoogleGenerativeAI(
+
+        model = ChatGoogleGenerativeAI(
             google_api_key=GOOGLE_API_KEY, **configs[name]
         )
+
+        if name == "research":
+            # The latest approach for native tools like Google Search
+            model = model.bind_tools([{"google_search": {}}])
+
+        _model_cache[name] = model
         logger.debug(f"Initialized model: {name}")
     return _model_cache[name]
 
