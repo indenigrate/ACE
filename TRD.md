@@ -169,6 +169,12 @@ The agent expects a sheet named `Internship_Leads` with these exact headers:
 *   **Safety:** Does **NOT** send emails. Instead, it creates **Gmail Drafts**.
 *   **Use Case:** Bulk processing leads to be reviewed manually in the Gmail UI later.
 
+### 4.3. Starred Emails Mode (`--starred`)
+*   **Behavior:** Iterates through user-starred email threads in Gmail.
+*   **Action:** LLM reads the complete thread history, decides if a follow-up is necessary based on context, and generates a suggested draft response.
+*   **UX:** Interactive HITL approval. If approved, creates a formatted draft reply attached to the same thread in Gmail.
+*   **Use Case:** Efficiently handling follow-ups for warm leads or important conversations that the user has starred manually in their inbox.
+
 ---
 
 ## 5. Implementation & Environment

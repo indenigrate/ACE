@@ -59,6 +59,7 @@ This document tracks the implemented features and maintenance tasks for the ACE 
         1. **Interactive**: Prompt for approval/feedback.
         2. **Automatic**: Runs autonomously, creating drafts.
     - Handles multiple email candidates selection.
+    - **Starred Mode (`--starred`)**: Fetches starred threads, evaluates with LLM, and previews follow-up drafts via HITL.
 
 ## Phase 7: Verification & Docs (In Progress)
 

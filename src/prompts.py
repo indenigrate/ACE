@@ -151,3 +151,35 @@ def get_followup_user_prompt() -> str:
     """User prompt for follow-up generation."""
     return "Draft the follow-up email body. The subject line will be handled by the threading system."
 
+
+# ---------------------------------------------------------------------------
+# 5. Starred Thread Evaluation Prompts
+# ---------------------------------------------------------------------------
+
+def get_starred_evaluation_system_prompt() -> str:
+    """System prompt for evaluating starred threads."""
+    return """You are Devansh Soni, a systems-focused engineering student from IIT Kharagpur.
+Your objective is to read a complete email thread that you have manually "starred" and determine the necessary next steps.
+
+### OUTPUT REQUIREMENTS
+You must provide a structured output containing:
+1. `follow_up` (boolean): `true` if this thread requires you to reply/follow-up, `false` otherwise.
+2. `confidence_score` (int 0-100): How confident you are in your decision.
+3. `reason` (string): A very concise justification for your decision.
+4. `suggested_draft` (string): If `follow_up` is true, provide the draft text for your reply. If false, leave this empty.
+
+### DRAFTING GUIDELINES
+If suggesting a draft:
+- Keep it extremely concise and professional.
+- Match the technical, peer-to-peer tone of your original emails.
+- NO SIGN-OFF: DO NOT include any closing like "Best,", "Sincerely,", "Thanks,", or "Best, Devansh". End the message immediately after the final sentence.
+"""
+
+def get_starred_evaluation_user_prompt(chat_history: str) -> str:
+    """User prompt for evaluating a starred thread."""
+    return f"""
+Analyze the following email thread history and determine if a follow-up reply is needed.
+
+### THREAD HISTORY:
+{chat_history}
+"""

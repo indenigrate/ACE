@@ -17,6 +17,8 @@ from src.prompts import (
     get_refine_draft_user_prompt,
     get_followup_system_prompt,
     get_followup_user_prompt,
+    get_starred_evaluation_system_prompt,
+    get_starred_evaluation_user_prompt,
 )
 from src.analytics import log_event
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -50,7 +52,16 @@ class ResearchResult(BaseModel):
     company_domain: str = Field(description="The specific technical domain (e.g. Fintech, AI, SaaS).")
 
 
+class ThreadEvaluation(BaseModel):
+    """Schema for evaluating a starred email thread."""
+    follow_up: bool = Field(description="Whether a follow-up is needed for this entire thread.")
+    confidence_score: int = Field(description="Confidence score in the evaluation from 0 to 100.")
+    reason: str = Field(description="Very short and concise reason for why a follow-up is or isn't needed.")
+    suggested_draft: str = Field(description="If follow-up is true, the suggested draft reply. Otherwise empty.")
+
+
 # ---------------------------------------------------------------------------
+
 # Lazy Model Factory (singleton cache)
 # ---------------------------------------------------------------------------
 _model_cache: Dict[str, ChatGoogleGenerativeAI] = {}
@@ -446,3 +457,28 @@ def update_sheet_node(state: AgentState) -> Dict[str, Any]:
 def human_review_node(state: AgentState) -> Dict[str, Any]:
     """A dummy node that acts as a breakpoint for human review."""
     return {}
+
+
+def evaluate_starred_thread(chat_history: str) -> ThreadEvaluation:
+    """Evaluates a full chat history of a starred Gmail thread natively."""
+    system_prompt = get_starred_evaluation_system_prompt()
+    user_prompt = get_starred_evaluation_user_prompt(chat_history=chat_history)
+    
+    # We use Flash here for speed, context window, and cost
+    structured_llm = _get_model("flash").with_structured_output(ThreadEvaluation)
+    
+    try:
+        response: ThreadEvaluation = structured_llm.invoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt),
+        ])
+        return response
+    except Exception as e:
+        logger.error(f"Error evaluating starred thread: {e}")
+        # Return a safe fallback
+        return ThreadEvaluation(
+            follow_up=False,
+            confidence_score=0,
+            reason=f"LLM parsing failed: {str(e)}",
+            suggested_draft=""
+        )

@@ -388,3 +388,98 @@ def send_draft(draft_id: str) -> dict:
     )
     logger.info(f"Draft {draft_id} sent successfully.")
     return result
+
+
+def list_starred_threads(max_results: int = 50) -> list[dict]:
+    """Fetches the most recent starred threads in Gmail.
+    
+    Returns a list of thread objects: [{"id": ..., "snippet": ...}, ...]
+    """
+    service = get_gmail_service()
+    threads: list[dict] = []
+    page_token = None
+
+    while len(threads) < max_results:
+        page_size = min(max_results - len(threads), 50)
+        result = _execute_with_retry(
+            lambda pt=page_token, ps=page_size: service.users().threads().list(
+                userId="me", maxResults=ps, pageToken=pt, q="is:starred"
+            ).execute()
+        )
+        batch = result.get("threads", [])
+        if not batch:
+            break
+        threads.extend(batch)
+        page_token = result.get("nextPageToken")
+        if not page_token:
+            break
+
+    return threads[:max_results]
+
+
+def get_thread_history(thread_id: str) -> str:
+    """Extracts a readable plaintext history of a thread's messages for LLM parsing."""
+    service = get_gmail_service()
+    thread = _execute_with_retry(
+        lambda: service.users().threads().get(userId="me", id=thread_id).execute()
+    )
+    
+    messages = thread.get('messages', [])
+    chat_log = []
+    
+    for msg in messages:
+        headers = {h['name'].lower(): h['value'] for h in msg['payload']['headers']}
+        sender = headers.get('from', 'Unknown')
+        date = headers.get('date', 'Unknown Date')
+        
+        # Get raw text body
+        parts = msg.get('payload', {}).get('parts', [])
+        body_data = ""
+        
+        # If it's multipart
+        if parts:
+            for part in parts:
+                if part.get('mimeType') == 'text/plain':
+                    data = part.get('body', {}).get('data', '')
+                    if data:
+                        body_data = base64.urlsafe_b64decode(data).decode('utf-8', errors='replace')
+                        break
+        else:
+            # Single part
+            data = msg.get('payload', {}).get('body', {}).get('data', '')
+            if data:
+                body_data = base64.urlsafe_b64decode(data).decode('utf-8', errors='replace')
+                
+        # Clean history a bit (optional)
+        body_data = clean_text_plain(body_data)
+        
+        chat_log.append(f"--- Message on {date} ---\nFrom: {sender}\n\n{body_data}\n")
+        
+    return "\n".join(chat_log)
+
+
+def get_thread_metadata(thread_id: str) -> dict:
+    """Extracts metadata from a thread like its main subject, last reply date, and participant count."""
+    service = get_gmail_service()
+    thread = _execute_with_retry(
+        lambda: service.users().threads().get(userId="me", id=thread_id, format="metadata").execute()
+    )
+    
+    messages = thread.get('messages', [])
+    if not messages:
+        return {"subject": "Unknown", "last_date": "Unknown", "msg_count": 0}
+        
+    last_msg = messages[-1]
+    first_msg = messages[0]
+    
+    last_headers = {h['name'].lower(): h['value'] for h in last_msg['payload']['headers']}
+    first_headers = {h['name'].lower(): h['value'] for h in first_msg['payload']['headers']}
+    
+    subject = first_headers.get('subject', 'No Subject')
+    last_date = last_headers.get('date', 'Unknown Date')
+    
+    return {
+        "subject": subject,
+        "last_date": last_date,
+        "msg_count": len(messages)
+    }

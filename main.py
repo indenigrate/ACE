@@ -11,8 +11,9 @@ from rich.live import Live
 from src.graph import create_graph
 from src.state import AgentState
 from src.analytics import log_event, format_summary
-from src.tools_gmail import list_drafts, get_draft_details, send_draft
-from config.settings import MAX_REFINEMENT_ITERATIONS
+from src.tools_gmail import list_drafts, get_draft_details, send_draft, list_starred_threads, get_thread_history, get_thread_metadata, create_draft_reply
+from src.nodes import evaluate_starred_thread
+from config.settings import MAX_REFINEMENT_ITERATIONS, RESUME_PDF_PATH
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -146,6 +147,101 @@ def send_drafts_loop(limit: int) -> None:
     console.print(f"\n[bold green]Done. Sent {sent_count}/{total} draft(s).[/bold green]")
 
 
+# ---------------------------------------------------------------------------
+# Starred Emails Mode
+# ---------------------------------------------------------------------------
+
+def starred_emails_loop(limit: int) -> None:
+    """Iterate over starred emails, evaluate them natively, and suggest follow-up drafts."""
+    mode_label = f"up to {limit}" if limit > 0 else "all available"
+    console.print(Panel(
+        f"[bold yellow]Starred Emails Mode[/bold yellow]\n"
+        f"Processing [bold]{mode_label}[/bold] starred emails.\n"
+        f"Press [bold red]Ctrl+C[/bold red] to stop.",
+        expand=False,
+    ))
+
+    # Fetch starred threads
+    fetch_count = limit if limit > 0 else 50
+    console.print(f"\n[dim]Fetching starred threads...[/dim]")
+    threads = list_starred_threads(max_results=fetch_count)
+
+    if not threads:
+        console.print("[yellow]No starred threads found.[/yellow]")
+        return
+
+    total = len(threads)
+    if limit > 0:
+        total = min(total, limit)
+        threads = threads[:total]
+
+    console.print(f"[green]Found {len(threads)} starred thread(s) to process.[/green]\n")
+
+    try:
+        for i, thread_meta in enumerate(threads, 1):
+            thread_id = thread_meta["id"]
+            
+            console.print(f"[bold cyan]--- [{i}/{total}] Processing Thread {thread_id} ---[/bold cyan]")
+            
+            # Get metadata & history
+            meta = get_thread_metadata(thread_id)
+            chat_history = get_thread_history(thread_id)
+            
+            # Evaluate
+            console.print("[dim]Evaluating thread with LLM...[/dim]")
+            evaluation = evaluate_starred_thread(chat_history)
+            
+            # Display
+            console.print(Panel.fit(
+                f"[bold blue]Subject:[/bold blue] {meta['subject']}\n"
+                f"[bold blue]Last Date:[/bold blue] {meta['last_date']}\n"
+                f"[bold blue]Messages:[/bold blue] {meta['msg_count']}\n"
+                f"---\n"
+                f"[bold]Follow up needed?[/bold] [{'green' if evaluation.follow_up else 'red'}]{evaluation.follow_up}[/]\n"
+                f"[bold]Confidence:[/bold] {evaluation.confidence_score}%\n"
+                f"[bold]Reason:[/bold] {evaluation.reason}",
+                title="Thread Evaluation"
+            ))
+            
+            if evaluation.follow_up and evaluation.suggested_draft:
+                console.print(Panel(
+                    evaluation.suggested_draft,
+                    title="Suggested Draft"
+                ))
+                
+                action = Prompt.ask(
+                    "[a] Approve & Draft / [s] Skip",
+                    choices=["a", "s"],
+                    default="a"
+                )
+                
+                if action.lower() == 'a':
+                    console.print("[dim]Creating draft...[/dim]")
+                    try:
+                        # Only attach resume safely if it exists
+                        resume_pdf_path = str(RESUME_PDF_PATH) if RESUME_PDF_PATH and hasattr(RESUME_PDF_PATH, 'is_file') and RESUME_PDF_PATH.is_file() else None
+                        create_draft_reply(
+                            thread_id=thread_id,
+                            body=evaluation.suggested_draft,
+                            attachment_path=resume_pdf_path
+                        )
+                        console.print("[green]✓ Draft created successfully.[/green]\n")
+                    except Exception as e:
+                        console.print(f"[red]✗ Failed to create draft: {e}[/red]\n")
+                else:
+                    console.print("[yellow]Skipping thread.[/yellow]\n")
+            else:
+                console.print("[dim]No follow-up suggested by LLM.[/dim]")
+                if i < total:
+                    Prompt.ask("Press Enter to continue to next thread...", default="")
+                console.print("")
+
+    except KeyboardInterrupt:
+        console.print(f"\n[bold red]Interrupted![/bold red]")
+
+    console.print(f"\n[bold green]Done processing starred threads.[/bold green]")
+
+
 def main():
     parser = argparse.ArgumentParser(description="ACE: Agentic Cold Emailer")
     group = parser.add_mutually_exclusive_group()
@@ -154,9 +250,17 @@ def main():
         "--send-drafts", type=int, nargs="?", const=0, default=None, metavar="N",
         help="Send recent Gmail drafts at 20s intervals. Optionally specify N to limit count."
     )
+    group.add_argument(
+        "--starred", type=int, nargs="?", const=0, default=None, metavar="N",
+        help="Process starred emails and draft AI-suggested follow-ups. Optionally specify N to limit count."
+    )
     args = parser.parse_args()
 
     console.print(Panel("[bold green]ACE: Agentic Cold Emailer[/bold green]", expand=False))
+
+    if args.starred is not None:
+        starred_emails_loop(args.starred)
+        return
 
     # Dispatch to send-drafts mode if requested
     if args.send_drafts is not None:
